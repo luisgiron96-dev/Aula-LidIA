@@ -1,13 +1,10 @@
 import 'dart:convert';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/constants/app_colors.dart';
-import '../../../core/constants/api_config.dart';
 
-// MÓVIL: llama a Groq directo con --dart-define=GROQ_API_KEY=...
-// WEB: llama al proxy (necesario por CORS del navegador) con
-//      --dart-define=LIDIA_API_URL=... (ver api_config.dart)
+const String _groqApiKey = 'API KEY';
+const String _groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
 class ChatIAScreen extends StatefulWidget {
   const ChatIAScreen({super.key});
@@ -23,43 +20,51 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
   final List<Map<String, String>> _messages = [
     {
       'role': 'lidia',
-      'text': '¡Hola! Soy LidIA, tu asistente virtual de Aula Lid-IA 👋\n\n'
-        'Puedo ayudarte con tus materias, resolver dudas, explicar temas '
-        'y mucho más. ¿En qué te puedo ayudar hoy?',
+      'text': '¡Hola! Soy LidIA, tu tutora virtual 👋\n\n'
+        'Estoy aquí para ayudarte a entender cualquier tema de tus materias. '
+        'Te explico paso a paso para que tú mismo puedas resolver tus actividades.\n\n'
+        '¿Qué tema quieres aprender hoy?',
       'time': '9:00 am',
     },
   ];
 
-  // Historial para Groq — mantiene contexto de la conversación
   final List<Map<String, String>> _groqHistory = [
     {
       'role': 'system',
       'content':
-        'Eres LidIA, una asistente virtual educativa amigable y paciente '
-        'para estudiantes rurales de Colombia de la plataforma Aula Lid-IA. '
-        'Tu misión es ayudar a los estudiantes con sus materias escolares: '
-        'Español, Inglés, Matemáticas, Ciencias Sociales, Ciencias Naturales, '
-        'Cátedra de Paz, Religión, Informática y TelePsicología. '
-        'Responde siempre en español colombiano, de forma clara, sencilla y motivadora. '
-        'Usa emojis con moderación para hacer las respuestas más amigables. '
-        'Si el estudiante dice "sí" o "si" después de una pregunta tuya, '
-        'dales la explicación completa que prometiste. '
-        'Mantén el contexto de la conversación y recuerda lo que se ha hablado.',
+        'Eres LidIA, una tutora virtual educativa para estudiantes rurales '
+        'de Colombia de la plataforma Aula Lid-IA. '
+        'Tu rol es ser TUTORA, no resolver tareas ni actividades directamente. '
+        'REGLAS IMPORTANTES que SIEMPRE debes seguir:\n'
+        '1. NUNCA des la respuesta directa a una tarea, ejercicio o actividad.\n'
+        '2. Si un estudiante te pide que resuelva su tarea, explícale el concepto '
+        'y guíalo para que él mismo lo resuelva.\n'
+        '3. Usa ejemplos DIFERENTES a los de la tarea del estudiante.\n'
+        '4. Explica paso a paso de forma clara y sencilla.\n'
+        '5. Motiva al estudiante a pensar por sí mismo.\n'
+        '6. Si el estudiante insiste en que le des la respuesta, '
+        'recuérdale amablemente que tu rol es enseñarle, no hacer su tarea.\n'
+        '7. Responde siempre en español colombiano, cálido y motivador.\n'
+        '8. Usa emojis con moderación para hacer las respuestas más amigables.\n'
+        '9. Cuando expliques un concepto, al final pregunta si entendió '
+        'o si quiere que expliques algo de otra forma.\n'
+        'Materias que cubres: Español, Inglés, Matemáticas, '
+        'Ciencias Sociales, Ciencias Naturales, Cátedra de Paz, '
+        'Religión, Informática y TelePsicología.',
     }
   ];
 
   final List<String> _suggestions = [
-    '¿Qué es una fracción?',
+    '¿Cómo se suman fracciones?',
     'Explícame el ciclo del agua',
-    'Ayúdame con mi tarea de Español',
-    '¿Cuándo es la próxima clase?',
+    '¿Qué es un sujeto y predicado?',
+    '¿Cómo se forma el pasado en inglés?',
   ];
 
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
     _msgCtrl.clear();
 
-    // Agrega al historial de Groq
     _groqHistory.add({'role': 'user', 'content': text});
 
     setState(() {
@@ -74,30 +79,24 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
     _scrollToBottom();
 
     try {
-      // WEB → proxy (evita el bloqueo de CORS del navegador).
-      // MÓVIL → Groq directo, con la key como header Authorization.
-      final url = kIsWeb ? ApiConfig.lidiaChatUrl : ApiConfig.groqChatUrl;
-      final headers = {
-        'Content-Type': 'application/json',
-        if (!kIsWeb) 'Authorization': 'Bearer ${ApiConfig.groqApiKey}',
-      };
-
       final response = await http.post(
-        Uri.parse(url),
-        headers: headers,
+        Uri.parse(_groqUrl),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $_groqApiKey',
+        },
         body: jsonEncode({
-          'model': 'llama-3.1-8b-instant',
+          'model': 'llama3-8b-8192',
           'messages': _groqHistory,
           'max_tokens': 1024,
           'temperature': 0.7,
         }),
-      ).timeout(const Duration(seconds: 20));
+      );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final reply = data['choices'][0]['message']['content'] as String;
 
-        // Guarda respuesta en historial
         _groqHistory.add({'role': 'assistant', 'content': reply});
 
         setState(() {
@@ -109,13 +108,9 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           });
         });
       } else {
-        // ignore: avoid_print
-        print('LidIA error ${response.statusCode}: ${response.body}');
         _showError();
       }
     } catch (e) {
-      // ignore: avoid_print
-      print('LidIA error de conexión: $e');
       _showError();
     }
 
@@ -156,9 +151,7 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      // En móvil la barra superior ya la muestra MainLayout, así que aquí
-      // solo se dibuja en escritorio (donde MainLayout no tiene barra propia).
-      appBar: MediaQuery.of(context).size.width < 700 ? null : AppBar(
+      appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,
@@ -174,11 +167,11 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           const SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start,
             children: const [
-              Text('LidIA',
+              Text('LidIA — Tutora Virtual',
                 style: TextStyle(fontSize: 15,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary)),
-              Text('Asistente de IA · En línea',
+              Text('Te enseño, tú aprendes 🌱',
                 style: TextStyle(fontSize: 10,
                   color: AppColors.primary)),
             ]),
@@ -192,13 +185,30 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
               _groqHistory.removeWhere((m) => m['role'] != 'system');
               _messages.add({
                 'role': 'lidia',
-                'text': '¡Hola de nuevo! ¿En qué te puedo ayudar? 😊',
+                'text': '¡Hola de nuevo! ¿Qué tema quieres aprender hoy? 😊',
                 'time': _currentTime(),
               });
             })),
         ],
       ),
+
+      // Banner informativo
       body: Column(children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: 16, vertical: 8),
+          color: const Color(0xFFE1F5EE),
+          child: Row(children: const [
+            Icon(Icons.info_outline,
+              size: 14, color: AppColors.primaryDark),
+            SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'LidIA te explica los temas para que tú mismo resuelvas tus actividades',
+                style: TextStyle(fontSize: 11,
+                  color: AppColors.primaryDark))),
+          ])),
 
         // Mensajes
         Expanded(
@@ -247,7 +257,7 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
                 maxLines: null,
                 onSubmitted: _sendMessage,
                 decoration: InputDecoration(
-                  hintText: 'Escribe tu pregunta a LidIA...',
+                  hintText: '¿Qué tema quieres aprender?',
                   hintStyle: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary),
