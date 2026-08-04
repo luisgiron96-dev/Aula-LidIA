@@ -2,10 +2,10 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/constants/app_colors.dart';
+import '../../../core/constants/api_config.dart';
 
-// ⚠️ Reemplaza con tu API Key de Groq
-const String _groqApiKey = 'API KEY';
-const String _groqUrl = 'http://localhost:3000/chat';
+// La API key de Groq NO vive aquí. Vive solo en el proxy (proxy/.env),
+// para que nunca quede expuesta en el código de la app ni en GitHub.
 
 class ChatIAScreen extends StatefulWidget {
   const ChatIAScreen({super.key});
@@ -73,18 +73,15 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse(_groqUrl),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_groqApiKey',
-        },
+        Uri.parse(ApiConfig.lidiaChatUrl),
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'model': 'llama3-8b-8192',
           'messages': _groqHistory,
           'max_tokens': 1024,
           'temperature': 0.7,
         }),
-      );
+      ).timeout(const Duration(seconds: 20));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -102,9 +99,13 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           });
         });
       } else {
+        // ignore: avoid_print
+        print('LidIA error ${response.statusCode}: ${response.body}');
         _showError();
       }
     } catch (e) {
+      // ignore: avoid_print
+      print('LidIA error de conexión: $e');
       _showError();
     }
 
