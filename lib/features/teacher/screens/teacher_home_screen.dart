@@ -15,7 +15,9 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
+      // En móvil la barra superior ya la muestra MainLayout, así que aquí
+      // solo se dibuja en escritorio (donde MainLayout no tiene barra propia).
+      appBar: MediaQuery.of(context).size.width < 700 ? null : AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         title: Row(children: [

@@ -1,11 +1,13 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/api_config.dart';
 
-// La API key de Groq NO vive aquí. Vive solo en el proxy (proxy/.env),
-// para que nunca quede expuesta en el código de la app ni en GitHub.
+// MÓVIL: llama a Groq directo con --dart-define=GROQ_API_KEY=...
+// WEB: llama al proxy (necesario por CORS del navegador) con
+//      --dart-define=LIDIA_API_URL=... (ver api_config.dart)
 
 class ChatIAScreen extends StatefulWidget {
   const ChatIAScreen({super.key});
@@ -72,11 +74,19 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
     _scrollToBottom();
 
     try {
+      // WEB → proxy (evita el bloqueo de CORS del navegador).
+      // MÓVIL → Groq directo, con la key como header Authorization.
+      final url = kIsWeb ? ApiConfig.lidiaChatUrl : ApiConfig.groqChatUrl;
+      final headers = {
+        'Content-Type': 'application/json',
+        if (!kIsWeb) 'Authorization': 'Bearer ${ApiConfig.groqApiKey}',
+      };
+
       final response = await http.post(
-        Uri.parse(ApiConfig.lidiaChatUrl),
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse(url),
+        headers: headers,
         body: jsonEncode({
-          'model': 'llama3-8b-8192',
+          'model': 'llama-3.1-8b-instant',
           'messages': _groqHistory,
           'max_tokens': 1024,
           'temperature': 0.7,
@@ -146,7 +156,9 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: AppBar(
+      // En móvil la barra superior ya la muestra MainLayout, así que aquí
+      // solo se dibuja en escritorio (donde MainLayout no tiene barra propia).
+      appBar: MediaQuery.of(context).size.width < 700 ? null : AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         automaticallyImplyLeading: false,

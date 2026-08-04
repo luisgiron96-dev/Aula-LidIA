@@ -1,16 +1,30 @@
 ﻿// lib/core/constants/api_config.dart
 //
-// Centraliza la URL del proxy de LidIA. Cámbiala según dónde estés probando:
+// LidIA usa dos caminos distintos según dónde corra la app:
 //
-// - Chrome / Web en tu misma PC donde corre el proxy:      http://localhost:3000/chat
-// - Emulador de Android (Android Studio):                  http://10.0.2.2:3000/chat
-// - Dispositivo físico (Android/iOS) en la misma red Wi-Fi: http://TU_IP_LOCAL:3000/chat
-//     (obtén tu IP local con `ipconfig` en Windows, busca "IPv4 Address")
-// - Producción (proxy desplegado, ej. Render/Railway):      https://tu-proxy.onrender.com/chat
+// - MÓVIL (Android/iOS): llama a Groq DIRECTO, con la key embebida al
+//   compilar. No necesita proxy ni servidor propio.
 //
-// La API key de Groq NUNCA debe estar aquí ni en ningún archivo de Flutter.
-// Vive únicamente en el servidor proxy (proxy/.env), donde el usuario no puede verla.
+// - WEB (Chrome/navegador): los navegadores bloquean por seguridad (CORS)
+//   las llamadas directas a la API de Groq desde una página web. Por eso
+//   la versión web sigue necesitando el proxy (proxy/server.js) como
+//   intermediario — no es opcional, es una regla que impone el navegador,
+//   no algo que dependa de este código.
+//
+// El código en chat_ia_screen.dart detecta automáticamente en cuál de las
+// dos plataformas está corriendo y usa el camino correspondiente.
 class ApiConfig {
+  // ── Para MÓVIL: key directa a Groq ──────────────────────────
+  static const String groqApiKey = String.fromEnvironment(
+    'GROQ_API_KEY',
+    defaultValue: '',
+  );
+  static const String groqChatUrl =
+    'https://api.groq.com/openai/v1/chat/completions';
+
+  // ── Para WEB: URL del proxy ──────────────────────────────────
+  // - Probando en tu PC (proxy corriendo local): http://localhost:3000/chat
+  // - Ya desplegado en Render:                   https://tu-proxy.onrender.com/chat
   static const String lidiaChatUrl = String.fromEnvironment(
     'LIDIA_API_URL',
     defaultValue: 'http://localhost:3000/chat',

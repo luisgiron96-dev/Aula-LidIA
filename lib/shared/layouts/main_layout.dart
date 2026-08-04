@@ -6,6 +6,10 @@ import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/chat_ia/screens/chat_ia_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 
+// Punto de quiebre: por debajo de este ancho se usa el layout móvil
+// (barra superior + navegación inferior). Por encima, el sidebar de escritorio.
+const double kMobileBreakpoint = 700;
+
 class MainLayout extends StatefulWidget {
   final String role; // 'student' | 'teacher'
   const MainLayout({super.key, required this.role});
@@ -54,6 +58,17 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
+  // Índices de los ítems que en móvil se sacan de la barra inferior
+  // y se muestran como iconos en la barra superior (campana / avatar).
+  int get _notificationsIndex =>
+    _items.indexWhere((i) => i.label == 'Notificaciones');
+  int get _profileIndex =>
+    _items.indexWhere((i) => i.label == 'Mi perfil');
+
+  // El resto de ítems, los que sí van en la barra inferior móvil.
+  List<int> get _mobileNavIndices => List.generate(_items.length, (i) => i)
+    .where((i) => i != _notificationsIndex && i != _profileIndex).toList();
+
   Widget get _currentScreen {
     if (widget.role == 'student') {
       switch (_selectedIndex) {
@@ -76,6 +91,85 @@ class _MainLayoutState extends State<MainLayout> {
 
   @override
   Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < kMobileBreakpoint;
+        return isMobile ? _buildMobileLayout(context) : _buildDesktopLayout(context);
+      },
+    );
+  }
+
+  // ── LAYOUT MÓVIL: barra superior + navegación inferior ──────
+  Widget _buildMobileLayout(BuildContext context) {
+    final isStudent = widget.role == 'student';
+    final avatarColor = isStudent
+      ? AppColors.studentColor
+      : AppColors.teacherColor;
+    final avatarText = isStudent ? 'VA' : 'MP';
+    final avatarTextColor = isStudent
+      ? AppColors.primaryDark
+      : AppColors.accent;
+
+    return Scaffold(
+      backgroundColor: AppColors.background,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        automaticallyImplyLeading: false,
+        titleSpacing: 16,
+        title: Row(children: [
+          Container(
+            width: 32, height: 32,
+            decoration: BoxDecoration(
+              color: AppColors.primary,
+              borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.school, color: Colors.white, size: 18)),
+          const SizedBox(width: 10),
+          const Text('Aula Lid-IA',
+            style: TextStyle(fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textPrimary)),
+        ]),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _selectedIndex == _notificationsIndex
+                ? Icons.notifications
+                : Icons.notifications_outlined,
+              color: AppColors.textSecondary),
+            onPressed: () => setState(() =>
+              _selectedIndex = _notificationsIndex)),
+          GestureDetector(
+            onTap: () => setState(() => _selectedIndex = _profileIndex),
+            child: Padding(
+              padding: const EdgeInsets.only(right: 4, left: 4),
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: avatarColor,
+                child: Text(avatarText,
+                  style: TextStyle(fontSize: 11,
+                    fontWeight: FontWeight.w500,
+                    color: avatarTextColor)))),
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout, color: AppColors.error, size: 20),
+            tooltip: 'Cerrar sesión',
+            onPressed: () => Navigator.pushReplacement(context,
+              MaterialPageRoute(builder: (_) => const LoginScreen()))),
+        ],
+      ),
+      body: _currentScreen,
+      bottomNavigationBar: _MobileBottomNav(
+        items: _mobileNavIndices.map((i) => _items[i]).toList(),
+        selectedRealIndex: _selectedIndex,
+        realIndices: _mobileNavIndices,
+        onTap: (realIndex) => setState(() => _selectedIndex = realIndex),
+      ),
+    );
+  }
+
+  // ── LAYOUT ESCRITORIO: sidebar lateral (el original) ────────
+  Widget _buildDesktopLayout(BuildContext context) {
     final isStudent = widget.role == 'student';
     final avatarColor = isStudent
       ? AppColors.studentColor
@@ -279,6 +373,78 @@ class _NavItem {
   final String label;
   const _NavItem({required this.icon,
     required this.iconActive, required this.label});
+}
+
+// Barra de navegación inferior para móvil. Recibe los ítems ya filtrados
+// (sin Notificaciones ni Mi perfil, que viven en la barra superior) junto
+// con su índice "real" dentro de la lista completa de _items, para que
+// el resaltado y la selección sigan funcionando igual que en el sidebar.
+class _MobileBottomNav extends StatelessWidget {
+  final List<_NavItem> items;
+  final List<int> realIndices;
+  final int selectedRealIndex;
+  final ValueChanged<int> onTap;
+
+  const _MobileBottomNav({
+    required this.items,
+    required this.realIndices,
+    required this.selectedRealIndex,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF0D3D2B),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, -2)),
+        ]),
+      child: SafeArea(
+        child: SizedBox(
+          height: 60,
+          child: Row(
+            children: List.generate(items.length, (i) {
+              final item = items[i];
+              final realIndex = realIndices[i];
+              final active = selectedRealIndex == realIndex;
+              return Expanded(
+                child: GestureDetector(
+                  onTap: () => onTap(realIndex),
+                  behavior: HitTestBehavior.opaque,
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        active ? item.iconActive : item.icon,
+                        color: active
+                          ? AppColors.primaryLight
+                          : Colors.white54,
+                        size: 22),
+                      const SizedBox(height: 3),
+                      Text(item.label,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 9,
+                          color: active
+                            ? Colors.white
+                            : Colors.white54,
+                          fontWeight: active
+                            ? FontWeight.w600
+                            : FontWeight.normal)),
+                    ]),
+                ),
+              );
+            }),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _PlaceholderScreen extends StatelessWidget {
