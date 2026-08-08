@@ -3,7 +3,8 @@ import '../../../core/constants/app_colors.dart';
 import '../../live_class/screens/live_class_screen.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
-  const TeacherHomeScreen({super.key});
+  final String userName;
+  const TeacherHomeScreen({super.key, this.userName = 'Docente'});
   @override
   State<TeacherHomeScreen> createState() => _TeacherHomeScreenState();
 }
@@ -15,9 +16,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      // En móvil la barra superior ya la muestra MainLayout, así que aquí
-      // solo se dibuja en escritorio (donde MainLayout no tiene barra propia).
-      appBar: MediaQuery.of(context).size.width < 700 ? null : AppBar(
+      appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         title: Row(children: [
@@ -67,13 +66,13 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text('¡Hola, Prof. Mariela! 👋',
-                        style: TextStyle(fontSize: 16,
+                    children: [
+                      Text('¡Hola, ${widget.userName}! 👋',
+                        style: const TextStyle(fontSize: 16,
                           fontWeight: FontWeight.w500,
                           color: Colors.white)),
-                      SizedBox(height: 4),
-                      Text('Tienes 1 clase programada hoy',
+                      const SizedBox(height: 4),
+                      const Text('Tienes 1 clase programada hoy',
                         style: TextStyle(fontSize: 12,
                           color: Colors.white70)),
                     ]),
@@ -115,7 +114,6 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
             ]),
             const SizedBox(height: 12),
 
-            // Contenido de pestañas
             if (_tabIndex == 0) _UploadTab(),
             if (_tabIndex == 1) _LiveTab(),
             if (_tabIndex == 2) _StudentsTab(),
@@ -126,7 +124,6 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
   }
 }
 
-// ── PESTAÑA: SUBIR CONTENIDO ──────────────────────────
 class _UploadTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -138,7 +135,7 @@ class _UploadTab extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: AppColors.primary.withOpacity(0.4),
+            color: AppColors.primary.withValues(alpha: 0.4),
             width: 1.5)),
         child: Column(children: [
           const Icon(Icons.cloud_upload_outlined,
@@ -191,7 +188,6 @@ class _UploadTab extends StatelessWidget {
   }
 }
 
-// ── PESTAÑA: CLASE EN VIVO ────────────────────────────
 class _LiveTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -258,7 +254,6 @@ class _LiveTab extends StatelessWidget {
   }
 }
 
-// ── PESTAÑA: ESTUDIANTES ──────────────────────────────
 class _StudentsTab extends StatelessWidget {
   final List<Map<String, dynamic>> students = const [
     {'initials': 'VA', 'name': 'Valentina A.', 'progress': 80,
@@ -292,8 +287,6 @@ class _StudentsTab extends StatelessWidget {
     );
   }
 }
-
-// ── WIDGETS ───────────────────────────────────────────
 
 class _StatCard extends StatelessWidget {
   final String number;
@@ -340,7 +333,7 @@ class _TabBtn extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: active
-            ? AppColors.primaryLight.withOpacity(0.3)
+            ? AppColors.primaryLight.withValues(alpha: 0.3)
             : Colors.white,
           border: Border.all(
             color: active ? AppColors.primary : Colors.grey.shade300),
@@ -379,7 +372,7 @@ class _VideoItem extends StatelessWidget {
         Container(
           width: 44, height: 36,
           decoration: BoxDecoration(
-            color: AppColors.primaryLight.withOpacity(0.3),
+            color: AppColors.primaryLight.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(6)),
           child: Icon(icon, color: AppColors.primaryDark, size: 18)),
         const SizedBox(width: 10),

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'core/services/supabase_service.dart';
 import 'core/theme/app_theme.dart';
 import 'features/auth/screens/login_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await SupabaseService.initialize();
   runApp(const AulaLidIAApp());
 }
 

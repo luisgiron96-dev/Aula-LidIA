@@ -16,6 +16,7 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
   final _msgCtrl    = TextEditingController();
   final _scrollCtrl = ScrollController();
   bool _isTyping    = false;
+  String _errorDetail = '';
 
   final List<Map<String, String>> _messages = [
     {
@@ -74,6 +75,7 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
         'time': _currentTime(),
       });
       _isTyping = true;
+      _errorDetail = '';
     });
 
     _scrollToBottom();
@@ -86,12 +88,15 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           'Authorization': 'Bearer $_groqApiKey',
         },
         body: jsonEncode({
-          'model': 'llama3-8b-8192',
+          'model': 'llama-3.1-8b-instant',
           'messages': _groqHistory,
           'max_tokens': 1024,
           'temperature': 0.7,
         }),
-      );
+      ).timeout(const Duration(seconds: 30));
+
+      print('STATUS: ${response.statusCode}');
+      print('BODY: ${response.body}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -108,9 +113,12 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           });
         });
       } else {
+        setState(() => _errorDetail = 'Status: ${response.statusCode}');
         _showError();
       }
     } catch (e) {
+      print('ERROR LidIA: $e');
+      setState(() => _errorDetail = e.toString());
       _showError();
     }
 
@@ -122,7 +130,8 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
       _isTyping = false;
       _messages.add({
         'role': 'lidia',
-        'text': 'Ups, tuve un problema de conexión 😕\n'
+        'text': 'Ups, tuve un problema 😕\n'
+          'Error: $_errorDetail\n\n'
           'Verifica tu internet e intenta de nuevo.',
         'time': _currentTime(),
       });
@@ -191,9 +200,9 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
             })),
         ],
       ),
-
-      // Banner informativo
       body: Column(children: [
+
+        // Banner informativo
         Container(
           width: double.infinity,
           padding: const EdgeInsets.symmetric(

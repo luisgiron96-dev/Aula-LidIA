@@ -1,17 +1,18 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/services/supabase_service.dart';
 import '../../features/student/screens/student_home_screen.dart';
+import '../../features/student/screens/student_profile_screen.dart';
 import '../../features/teacher/screens/teacher_home_screen.dart';
+import '../../features/teacher/screens/teacher_profile_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/chat_ia/screens/chat_ia_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 
-// Punto de quiebre: por debajo de este ancho se usa el layout móvil
-// (barra superior + navegación inferior). Por encima, el sidebar de escritorio.
 const double kMobileBreakpoint = 700;
 
 class MainLayout extends StatefulWidget {
-  final String role; // 'student' | 'teacher'
+  final String role;
   const MainLayout({super.key, required this.role});
 
   @override
@@ -19,8 +20,26 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
-  int _selectedIndex = 0;
+  int _selectedIndex  = 0;
   bool _sidebarExpanded = true;
+  String _userName    = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final name = await SupabaseService.getUserName();
+    if (mounted) {
+      setState(() {
+        _userName = name.isNotEmpty
+          ? name
+          : (widget.role == 'student' ? 'Estudiante' : 'Docente');
+      });
+    }
+  }
 
   List<_NavItem> get _items {
     if (widget.role == 'student') {
@@ -58,34 +77,54 @@ class _MainLayoutState extends State<MainLayout> {
     }
   }
 
-  // Índices de los ítems que en móvil se sacan de la barra inferior
-  // y se muestran como iconos en la barra superior (campana / avatar).
   int get _notificationsIndex =>
     _items.indexWhere((i) => i.label == 'Notificaciones');
   int get _profileIndex =>
     _items.indexWhere((i) => i.label == 'Mi perfil');
 
-  // El resto de ítems, los que sí van en la barra inferior móvil.
-  List<int> get _mobileNavIndices => List.generate(_items.length, (i) => i)
-    .where((i) => i != _notificationsIndex && i != _profileIndex).toList();
+  List<int> get _mobileNavIndices =>
+    List.generate(_items.length, (i) => i)
+      .where((i) => i != _notificationsIndex && i != _profileIndex)
+      .toList();
+
+  String get _avatarText {
+    if (_userName.isEmpty) {
+      return widget.role == 'student' ? 'VA' : 'MP';
+    }
+    final parts = _userName.trim().split(' ');
+    if (parts.length >= 2) {
+      return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
+    }
+    return _userName[0].toUpperCase();
+  }
 
   Widget get _currentScreen {
     if (widget.role == 'student') {
       switch (_selectedIndex) {
-        case 0: return const StudentHomeScreen();
+        case 0: return StudentHomeScreen(userName: _userName);
         case 3: return const ChatIAScreen();
         case 4: return const NotificationsScreen();
+        case 5: return StudentProfileScreen(userName: _userName);
         default: return _PlaceholderScreen(
           label: _items[_selectedIndex].label);
       }
     } else {
       switch (_selectedIndex) {
-        case 0: return const TeacherHomeScreen();
+        case 0: return TeacherHomeScreen(userName: _userName);
         case 4: return const ChatIAScreen();
         case 5: return const NotificationsScreen();
+        case 6: return TeacherProfileScreen(userName: _userName);
         default: return _PlaceholderScreen(
           label: _items[_selectedIndex].label);
       }
+    }
+  }
+
+  Future<void> _logout() async {
+    await SupabaseService.logout();
+    if (mounted) {
+      Navigator.pushReplacement(context,
+        MaterialPageRoute(builder: (_) => const LoginScreen()));
     }
   }
 
@@ -94,21 +133,20 @@ class _MainLayoutState extends State<MainLayout> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final isMobile = constraints.maxWidth < kMobileBreakpoint;
-        return isMobile ? _buildMobileLayout(context) : _buildDesktopLayout(context);
+        return isMobile
+          ? _buildMobileLayout(context)
+          : _buildDesktopLayout(context);
       },
     );
   }
 
-  // ── LAYOUT MÓVIL: barra superior + navegación inferior ──────
+  // ── LAYOUT MÓVIL ─────────────────────────────────────
   Widget _buildMobileLayout(BuildContext context) {
     final isStudent = widget.role == 'student';
     final avatarColor = isStudent
-      ? AppColors.studentColor
-      : AppColors.teacherColor;
-    final avatarText = isStudent ? 'VA' : 'MP';
+      ? AppColors.studentColor : AppColors.teacherColor;
     final avatarTextColor = isStudent
-      ? AppColors.primaryDark
-      : AppColors.accent;
+      ? AppColors.primaryDark : AppColors.accent;
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -123,7 +161,8 @@ class _MainLayoutState extends State<MainLayout> {
             decoration: BoxDecoration(
               color: AppColors.primary,
               borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.school, color: Colors.white, size: 18)),
+            child: const Icon(Icons.school,
+              color: Colors.white, size: 18)),
           const SizedBox(width: 10),
           const Text('Aula Lid-IA',
             style: TextStyle(fontSize: 15,
@@ -140,22 +179,21 @@ class _MainLayoutState extends State<MainLayout> {
             onPressed: () => setState(() =>
               _selectedIndex = _notificationsIndex)),
           GestureDetector(
-            onTap: () => setState(() => _selectedIndex = _profileIndex),
+            onTap: () => setState(
+              () => _selectedIndex = _profileIndex),
             child: Padding(
-              padding: const EdgeInsets.only(right: 4, left: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: CircleAvatar(
                 radius: 16,
                 backgroundColor: avatarColor,
-                child: Text(avatarText,
+                child: Text(_avatarText,
                   style: TextStyle(fontSize: 11,
                     fontWeight: FontWeight.w500,
-                    color: avatarTextColor)))),
-          ),
+                    color: avatarTextColor))))),
           IconButton(
-            icon: const Icon(Icons.logout, color: AppColors.error, size: 20),
-            tooltip: 'Cerrar sesión',
-            onPressed: () => Navigator.pushReplacement(context,
-              MaterialPageRoute(builder: (_) => const LoginScreen()))),
+            icon: const Icon(Icons.logout,
+              color: AppColors.error, size: 20),
+            onPressed: _logout),
         ],
       ),
       body: _currentScreen,
@@ -163,29 +201,24 @@ class _MainLayoutState extends State<MainLayout> {
         items: _mobileNavIndices.map((i) => _items[i]).toList(),
         selectedRealIndex: _selectedIndex,
         realIndices: _mobileNavIndices,
-        onTap: (realIndex) => setState(() => _selectedIndex = realIndex),
+        onTap: (realIndex) =>
+          setState(() => _selectedIndex = realIndex),
       ),
     );
   }
 
-  // ── LAYOUT ESCRITORIO: sidebar lateral (el original) ────────
+  // ── LAYOUT ESCRITORIO ─────────────────────────────────
   Widget _buildDesktopLayout(BuildContext context) {
     final isStudent = widget.role == 'student';
     final avatarColor = isStudent
-      ? AppColors.studentColor
-      : AppColors.teacherColor;
-    final avatarText = isStudent ? 'VA' : 'MP';
+      ? AppColors.studentColor : AppColors.teacherColor;
     final avatarTextColor = isStudent
-      ? AppColors.primaryDark
-      : AppColors.accent;
-    final userName = isStudent
-      ? 'Valentina A.' : 'Prof. Mariela P.';
-    final userRole = isStudent ? 'Estudiante · 7°' : 'Docente · Matemáticas';
+      ? AppColors.primaryDark : AppColors.accent;
+    final userRole = isStudent ? 'Estudiante' : 'Docente';
 
     return Scaffold(
       body: Row(children: [
 
-        // ── SIDEBAR ──────────────────────────────────
         AnimatedContainer(
           duration: const Duration(milliseconds: 220),
           width: _sidebarExpanded ? 220 : 64,
@@ -243,7 +276,7 @@ class _MainLayoutState extends State<MainLayout> {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: avatarColor,
-                  child: Text(avatarText,
+                  child: Text(_avatarText,
                     style: TextStyle(fontSize: 11,
                       fontWeight: FontWeight.w500,
                       color: avatarTextColor))),
@@ -252,7 +285,7 @@ class _MainLayoutState extends State<MainLayout> {
                   Expanded(child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(userName,
+                      Text(_userName,
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 11,
@@ -268,12 +301,11 @@ class _MainLayoutState extends State<MainLayout> {
             ),
             const SizedBox(height: 8),
 
-            // Divisor
             Divider(color: Colors.white12,
               height: 1, indent: 10, endIndent: 10),
             const SizedBox(height: 8),
 
-            // Items de navegación
+            // Navegación
             Expanded(
               child: ListView.builder(
                 padding: EdgeInsets.zero,
@@ -282,7 +314,8 @@ class _MainLayoutState extends State<MainLayout> {
                   final item = _items[i];
                   final active = _selectedIndex == i;
                   return GestureDetector(
-                    onTap: () => setState(() => _selectedIndex = i),
+                    onTap: () =>
+                      setState(() => _selectedIndex = i),
                     child: Container(
                       margin: const EdgeInsets.symmetric(
                         horizontal: 8, vertical: 2),
@@ -291,12 +324,12 @@ class _MainLayoutState extends State<MainLayout> {
                         vertical: 10),
                       decoration: BoxDecoration(
                         color: active
-                          ? AppColors.primary.withOpacity(0.25)
+                          ? AppColors.primary.withValues(alpha: 0.25)
                           : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                         border: active
-                          ? Border.all(
-                              color: AppColors.primary.withOpacity(0.4))
+                          ? Border.all(color: AppColors.primary
+                              .withValues(alpha: 0.4))
                           : null),
                       child: Row(
                         mainAxisAlignment: _sidebarExpanded
@@ -331,9 +364,7 @@ class _MainLayoutState extends State<MainLayout> {
             Divider(color: Colors.white12,
               height: 1, indent: 10, endIndent: 10),
             GestureDetector(
-              onTap: () => Navigator.pushReplacement(context,
-                MaterialPageRoute(
-                  builder: (_) => const LoginScreen())),
+              onTap: _logout,
               child: Container(
                 margin: const EdgeInsets.all(8),
                 padding: EdgeInsets.symmetric(
@@ -360,7 +391,6 @@ class _MainLayoutState extends State<MainLayout> {
           ]),
         ),
 
-        // ── CONTENIDO PRINCIPAL ───────────────────────
         Expanded(child: _currentScreen),
       ]),
     );
@@ -375,10 +405,6 @@ class _NavItem {
     required this.iconActive, required this.label});
 }
 
-// Barra de navegación inferior para móvil. Recibe los ítems ya filtrados
-// (sin Notificaciones ni Mi perfil, que viven en la barra superior) junto
-// con su índice "real" dentro de la lista completa de _items, para que
-// el resaltado y la selección sigan funcionando igual que en el sidebar.
 class _MobileBottomNav extends StatelessWidget {
   final List<_NavItem> items;
   final List<int> realIndices;
@@ -399,7 +425,7 @@ class _MobileBottomNav extends StatelessWidget {
         color: const Color(0xFF0D3D2B),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: Colors.black.withValues(alpha: 0.15),
             blurRadius: 8,
             offset: const Offset(0, -2)),
         ]),

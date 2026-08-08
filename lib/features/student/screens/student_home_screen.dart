@@ -4,15 +4,14 @@ import '../../subjects/screens/subject_detail_screen.dart';
 import '../../notifications/screens/notifications_screen.dart';
 
 class StudentHomeScreen extends StatelessWidget {
-  const StudentHomeScreen({super.key});
+  final String userName;
+  const StudentHomeScreen({super.key, this.userName = 'Estudiante'});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      // En móvil la barra superior ya la muestra MainLayout, así que aquí
-      // solo se dibuja en escritorio (donde MainLayout no tiene barra propia).
-      appBar: MediaQuery.of(context).size.width < 700 ? null : AppBar(
+      appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         title: Row(children: [
@@ -64,13 +63,13 @@ class StudentHomeScreen extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.start,
-                    children: const [
-                      Text('¡Hola, Valentina! 👋',
-                        style: TextStyle(fontSize: 16,
+                    children: [
+                      Text('¡Hola, $userName! 👋',
+                        style: const TextStyle(fontSize: 16,
                           fontWeight: FontWeight.w500,
                           color: Colors.white)),
-                      SizedBox(height: 4),
-                      Text('Tienes 2 clases hoy y 1 tarea pendiente',
+                      const SizedBox(height: 4),
+                      const Text('Tienes 2 clases hoy y 1 tarea pendiente',
                         style: TextStyle(fontSize: 12,
                           color: Colors.white70)),
                     ]),
@@ -237,8 +236,6 @@ class StudentHomeScreen extends StatelessWidget {
     );
   }
 }
-
-// ── WIDGETS ───────────────────────────────────────────
 
 class _SubjectCard extends StatelessWidget {
   final String icon;
