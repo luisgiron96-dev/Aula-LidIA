@@ -47,7 +47,7 @@ class SupabaseService {
   static Future<void> resetPassword(String email) async {
     await client.auth.resetPasswordForEmail(
       email,
-      redirectTo: 'io.supabase.aulaLidia://reset-callback',
+      redirectTo: 'https://aula-lidia.vercel.app',
     );
   }
 
