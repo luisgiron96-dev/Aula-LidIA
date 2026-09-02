@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/constants/app_colors.dart';
 
-const String _groqApiKey = 'Api key';
+const String _groqApiKey = 'Api Key';
 const String _groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
 class ChatIAScreen extends StatefulWidget {
