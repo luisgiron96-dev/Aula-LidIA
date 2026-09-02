@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/video_model.dart';
+import '../controllers/subject_controller.dart';
 
 class SubjectDetailScreen extends StatefulWidget {
+  final String subjectId;
   final String icon;
   final String name;
   final double progress;
 
   const SubjectDetailScreen({
     super.key,
+    required this.subjectId,
     required this.icon,
     required this.name,
     required this.progress,
@@ -19,6 +23,13 @@ class SubjectDetailScreen extends StatefulWidget {
 
 class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
   int _tabIndex = 0;
+  double _progress = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _progress = widget.progress;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -40,13 +51,6 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
               fontWeight: FontWeight.w500,
               color: AppColors.textPrimary)),
         ]),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.search,
-              color: AppColors.textSecondary),
-            onPressed: () {}),
-          const SizedBox(width: 4),
-        ],
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
@@ -85,14 +89,14 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: widget.progress,
+                      value: _progress,
                       minHeight: 8,
                       backgroundColor: Colors.white24,
                       valueColor: const AlwaysStoppedAnimation(
                         Colors.white))),
                   const SizedBox(height: 4),
                   Text(
-                    '${(widget.progress * 100).toInt()}% completado',
+                    '${(_progress * 100).toInt()}% completado',
                     style: const TextStyle(fontSize: 11,
                       color: Colors.white70)),
                 ]),
@@ -119,9 +123,13 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
             const SizedBox(height: 12),
 
             // Contenido pestañas
-            if (_tabIndex == 0) _VideosTab(subjectName: widget.name),
-            if (_tabIndex == 1) _ActivitiesTab(),
-            if (_tabIndex == 2) _ResourcesTab(),
+            if (_tabIndex == 0) _VideosTab(
+              subjectId: widget.subjectId,
+              onProgressChanged: (p) => setState(() => _progress = p)),
+            if (_tabIndex == 1) const _ComingSoonTab(
+              text: 'Las actividades y talleres estarán disponibles pronto.'),
+            if (_tabIndex == 2) const _ComingSoonTab(
+              text: 'Los recursos descargables estarán disponibles pronto.'),
           ],
         ),
       ),
@@ -129,170 +137,131 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
   }
 }
 
-// ── PESTAÑA VIDEOS ────────────────────────────────────
-class _VideosTab extends StatelessWidget {
-  final String subjectName;
-  const _VideosTab({required this.subjectName});
+// ── PESTAÑA VIDEOS (datos reales de Supabase) ─────────
+class _VideosTab extends StatefulWidget {
+  final String subjectId;
+  final ValueChanged<double> onProgressChanged;
+  const _VideosTab({required this.subjectId,
+    required this.onProgressChanged});
+
+  @override
+  State<_VideosTab> createState() => _VideosTabState();
+}
+
+class _VideosTabState extends State<_VideosTab> {
+  List<VideoModel> _videos = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVideos();
+  }
+
+  Future<void> _loadVideos() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final videos = await SubjectController.fetchLessons(widget.subjectId);
+      if (!mounted) return;
+      setState(() {
+        _videos = videos;
+        _loading = false;
+      });
+      _reportProgress();
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error cargando videos: $e');
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudieron cargar los videos.';
+        _loading = false;
+      });
+    }
+  }
+
+  void _reportProgress() {
+    if (_videos.isEmpty) return;
+    final viewedCount = _videos.where((v) => v.viewed).length;
+    widget.onProgressChanged(viewedCount / _videos.length);
+  }
+
+  Future<void> _markViewed(VideoModel video) async {
+    if (video.viewed) return;
+    // Optimista: actualiza la UI antes de esperar la respuesta del servidor
+    setState(() {
+      _videos = _videos.map((v) =>
+        v.id == video.id ? v.copyWith(viewed: true) : v).toList();
+    });
+    _reportProgress();
+    try {
+      await SubjectController.markLessonViewed(video.id);
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error guardando progreso: $e');
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final videos = [
-      {'title': 'Clase 1 — Introducción',
-        'duration': '18 min', 'viewed': true},
-      {'title': 'Clase 2 — Conceptos base',
-        'duration': '22 min', 'viewed': true},
-      {'title': 'Clase 3 — Ejercicios prácticos',
-        'duration': '15 min', 'viewed': false},
-      {'title': 'Clase 4 — Resolución de problemas',
-        'duration': '25 min', 'viewed': false},
-      {'title': 'Clase 5 — Repaso general',
-        'duration': '12 min', 'viewed': false},
-    ];
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator(
+          color: AppColors.primary)));
+    }
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Column(children: [
+          Text(_error!,
+            style: const TextStyle(color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          TextButton(onPressed: _loadVideos,
+            child: const Text('Reintentar')),
+        ])),
+      );
+    }
+    if (_videos.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Text(
+          'Todavía no hay videos para esta materia.',
+          style: TextStyle(color: AppColors.textSecondary))));
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${videos.length} videos disponibles',
+        Text('${_videos.length} videos disponibles',
           style: const TextStyle(fontSize: 12,
             color: AppColors.textSecondary)),
         const SizedBox(height: 10),
-        ...videos.map((v) => _VideoCard(
-          title: v['title'] as String,
-          duration: v['duration'] as String,
-          viewed: v['viewed'] as bool,
-          subjectName: subjectName,
-        )).toList(),
+        ..._videos.map((v) => _VideoCard(
+          video: v,
+          onTap: () => _markViewed(v),
+        )),
       ],
     );
   }
 }
 
-// ── PESTAÑA ACTIVIDADES ───────────────────────────────
-class _ActivitiesTab extends StatelessWidget {
+class _ComingSoonTab extends StatelessWidget {
+  final String text;
+  const _ComingSoonTab({required this.text});
+
   @override
   Widget build(BuildContext context) {
-    final activities = [
-      {'title': 'Taller cap. 1', 'due': 'Vence: hoy',
-        'status': 'pendiente'},
-      {'title': 'Quiz unidad 1', 'due': 'Vence: viernes',
-        'status': 'pendiente'},
-      {'title': 'Tarea cap. 2', 'due': 'Entregado',
-        'status': 'entregado'},
-      {'title': 'Proyecto final', 'due': 'Vence: 15 ago',
-        'status': 'pendiente'},
-    ];
-
-    return Column(
-      children: activities.map((a) {
-        final bool done = a['status'] == 'entregado';
-        return Container(
-          margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: Colors.grey.shade200)),
-          child: Row(children: [
-            Container(
-              width: 36, height: 36,
-              decoration: BoxDecoration(
-                color: done
-                  ? const Color(0xFFE1F5EE)
-                  : const Color(0xFFFAEEDA),
-                borderRadius: BorderRadius.circular(8)),
-              child: Icon(
-                done
-                  ? Icons.check_circle_outline
-                  : Icons.assignment_outlined,
-                size: 18,
-                color: done
-                  ? AppColors.primary
-                  : const Color(0xFFEF9F27))),
-            const SizedBox(width: 10),
-            Expanded(child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(a['title']!,
-                  style: const TextStyle(fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.textPrimary)),
-                Text(a['due']!,
-                  style: TextStyle(fontSize: 11,
-                    color: done
-                      ? AppColors.primary
-                      : const Color(0xFFEF9F27))),
-              ])),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(
-                color: done
-                  ? const Color(0xFFE1F5EE)
-                  : const Color(0xFFFAEEDA),
-                borderRadius: BorderRadius.circular(8)),
-              child: Text(
-                done ? 'Entregado ✓' : 'Pendiente',
-                style: TextStyle(fontSize: 10,
-                  fontWeight: FontWeight.w500,
-                  color: done
-                    ? AppColors.primaryDark
-                    : const Color(0xFF633806)))),
-          ]),
-        );
-      }).toList(),
-    );
-  }
-}
-
-// ── PESTAÑA RECURSOS ──────────────────────────────────
-class _ResourcesTab extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final resources = [
-      {'name': 'Guía de estudio unidad 1', 'type': 'PDF',
-        'size': '2.4 MB'},
-      {'name': 'Presentación clase 2', 'type': 'PPTX',
-        'size': '5.1 MB'},
-      {'name': 'Ejercicios complementarios', 'type': 'PDF',
-        'size': '1.2 MB'},
-      {'name': 'Mapa conceptual', 'type': 'IMG',
-        'size': '0.8 MB'},
-    ];
-
-    return Column(
-      children: resources.map((r) => Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: Colors.grey.shade200)),
-        child: Row(children: [
-          Container(
-            width: 36, height: 36,
-            decoration: BoxDecoration(
-              color: const Color(0xFFE8F0FE),
-              borderRadius: BorderRadius.circular(8)),
-            child: const Icon(Icons.insert_drive_file_outlined,
-              size: 18, color: Color(0xFF185FA5))),
-          const SizedBox(width: 10),
-          Expanded(child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(r['name']!,
-                style: const TextStyle(fontSize: 13,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.textPrimary)),
-              Text('${r['type']} · ${r['size']}',
-                style: const TextStyle(fontSize: 11,
-                  color: AppColors.textSecondary)),
-            ])),
-          IconButton(
-            icon: const Icon(Icons.download_outlined,
-              size: 20, color: AppColors.textSecondary),
-            onPressed: () {}),
-        ]),
-      )).toList(),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 32),
+      child: Center(child: Column(children: [
+        const Icon(Icons.hourglass_empty,
+          size: 32, color: AppColors.textSecondary),
+        const SizedBox(height: 8),
+        Text(text, textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 12,
+            color: AppColors.textSecondary)),
+      ])),
     );
   }
 }
@@ -300,12 +269,9 @@ class _ResourcesTab extends StatelessWidget {
 // ── WIDGETS ───────────────────────────────────────────
 
 class _VideoCard extends StatelessWidget {
-  final String title;
-  final String duration;
-  final bool viewed;
-  final String subjectName;
-  const _VideoCard({required this.title, required this.duration,
-    required this.viewed, required this.subjectName});
+  final VideoModel video;
+  final VoidCallback onTap;
+  const _VideoCard({required this.video, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -328,7 +294,7 @@ class _VideoCard extends StatelessWidget {
           child: Stack(alignment: Alignment.center, children: [
             Icon(Icons.play_circle_outline,
               color: Colors.white.withOpacity(0.9), size: 28),
-            if (viewed)
+            if (video.viewed)
               Positioned(
                 top: 6, right: 6,
                 child: Container(
@@ -347,7 +313,7 @@ class _VideoCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
+                Text(video.title,
                   style: const TextStyle(fontSize: 12,
                     fontWeight: FontWeight.w500,
                     color: AppColors.textPrimary)),
@@ -356,11 +322,11 @@ class _VideoCard extends StatelessWidget {
                   const Icon(Icons.access_time,
                     size: 11, color: AppColors.textSecondary),
                   const SizedBox(width: 3),
-                  Text(duration,
+                  Text('${video.durationMinutes} min',
                     style: const TextStyle(fontSize: 10,
                       color: AppColors.textSecondary)),
                   const SizedBox(width: 10),
-                  if (viewed)
+                  if (video.viewed)
                     const Text('Visto ✓',
                       style: TextStyle(fontSize: 10,
                         color: AppColors.primary)),
@@ -371,16 +337,18 @@ class _VideoCard extends StatelessWidget {
         // Botón reproducir
         Padding(
           padding: const EdgeInsets.only(right: 12),
-          child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.circular(6)),
-            child: const Text('Ver',
-              style: TextStyle(fontSize: 11,
-                color: Colors.white,
-                fontWeight: FontWeight.w500)))),
+          child: GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(6)),
+              child: const Text('Ver',
+                style: TextStyle(fontSize: 11,
+                  color: Colors.white,
+                  fontWeight: FontWeight.w500))))),
       ]),
     );
   }

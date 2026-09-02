@@ -3,6 +3,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/supabase_service.dart';
 import '../../features/student/screens/student_home_screen.dart';
 import '../../features/student/screens/student_profile_screen.dart';
+import '../../features/subjects/screens/subjects_list_screen.dart';
 import '../../features/teacher/screens/teacher_home_screen.dart';
 import '../../features/teacher/screens/teacher_profile_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
@@ -102,6 +103,7 @@ class _MainLayoutState extends State<MainLayout> {
     if (widget.role == 'student') {
       switch (_selectedIndex) {
         case 0: return StudentHomeScreen(userName: _userName);
+        case 1: return const SubjectsListScreen();
         case 3: return const ChatIAScreen();
         case 4: return const NotificationsScreen();
         case 5: return StudentProfileScreen(userName: _userName);
