@@ -11,9 +11,17 @@ void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SupabaseService.initialize();
 
-  // Escucha los eventos de autenticación. Cuando alguien entra desde el
-  // link de "recuperar contraseña" del correo, Supabase dispara el evento
-  // passwordRecovery — ahí lo mandamos a la pantalla de nueva contraseña.
+  // Detecta si la página se abrió desde el link de "recuperar contraseña"
+  // del correo. Leemos la URL directamente en vez de depender solo del
+  // evento passwordRecovery, que en algunas versiones de supabase_flutter
+  // para Web no se dispara de forma confiable.
+  final uri = Uri.base;
+  final isRecovery =
+    uri.queryParameters['type'] == 'recovery' ||
+    uri.fragment.contains('type=recovery');
+
+  // Por si el evento sí llega en algunos casos, lo dejamos también como
+  // respaldo.
   Supabase.instance.client.auth.onAuthStateChange.listen((data) {
     if (data.event == AuthChangeEvent.passwordRecovery) {
       navigatorKey.currentState?.push(
@@ -21,11 +29,12 @@ void main() async {
     }
   });
 
-  runApp(const AulaLidIAApp());
+  runApp(AulaLidIAApp(startWithRecovery: isRecovery));
 }
 
 class AulaLidIAApp extends StatelessWidget {
-  const AulaLidIAApp({super.key});
+  final bool startWithRecovery;
+  const AulaLidIAApp({super.key, this.startWithRecovery = false});
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +43,9 @@ class AulaLidIAApp extends StatelessWidget {
       title: 'Aula Lid-IA',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
-      home: const LoginScreen(),
+      home: startWithRecovery
+        ? const NewPasswordScreen()
+        : const LoginScreen(),
     );
   }
 }
