@@ -7,7 +7,7 @@ class LiveClassController {
 
   // Clases que aún no han terminado (en vivo o programadas a futuro)
   static Future<List<LiveClassModel>> fetchUpcoming() async {
-    final nowIso = DateTime.now()
+    final nowIso = DateTime.now().toUtc()
       .subtract(const Duration(hours: 6)) // margen para clases "en vivo"
       .toIso8601String();
 
@@ -29,7 +29,7 @@ class LiveClassController {
   static Future<List<LiveClassModel>> fetchPast() async {
     // Margen amplio: traemos también las que empezaron hace poco
     // y las filtramos de verdad en el cliente con isPast (usa la duración).
-    final windowIso = DateTime.now()
+    final windowIso = DateTime.now().toUtc()
       .subtract(const Duration(days: 30))
       .toIso8601String();
 
@@ -66,7 +66,7 @@ class LiveClassController {
       'teacher_id': userId,
       'meeting_url': meetingUrl,
       'platform': platform,
-      'scheduled_at': scheduledAt.toIso8601String(),
+      'scheduled_at': scheduledAt.toUtc().toIso8601String(),
       'duration_minutes': durationMinutes,
     });
   }

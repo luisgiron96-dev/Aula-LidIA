@@ -49,7 +49,8 @@ class LiveClassModel {
       teacherName: teacher?['full_name'] as String?,
       meetingUrl: json['meeting_url'] as String,
       platform: json['platform'] as String? ?? 'Otro',
-      scheduledAt: DateTime.parse(json['scheduled_at'] as String),
+      scheduledAt:
+        DateTime.parse(json['scheduled_at'] as String).toLocal(),
       durationMinutes: json['duration_minutes'] as int? ?? 60,
     );
   }
