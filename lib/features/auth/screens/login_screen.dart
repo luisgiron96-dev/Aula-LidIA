@@ -3,6 +3,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../shared/layouts/main_layout.dart';
+import 'verify_reset_code_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -68,7 +69,7 @@ class _LoginScreenState extends State<LoginScreen> {
             Icon(Icons.lock_reset,
               color: AppColors.primary, size: 22),
             SizedBox(width: 8),
-            Text('Recuperar contraseña',
+            Text('Recuperar contrase\u00f1a',
               style: TextStyle(fontSize: 16,
                 fontWeight: FontWeight.w500)),
           ]),
@@ -84,16 +85,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       Icon(Icons.mark_email_read_outlined,
                         color: AppColors.primary, size: 40),
                       SizedBox(height: 8),
-                      Text('¡Correo enviado!',
+                      Text('\u00a1Correo enviado!',
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                           color: AppColors.primaryDark)),
                       SizedBox(height: 4),
                       Text(
-                        'Revisa tu bandeja de entrada y '
-                        'sigue las instrucciones para '
-                        'restablecer tu contraseña.',
+                        'Te enviamos un c\u00f3digo de 6 d\u00edgitos. '
+                        'Rev\u00edsalo en tu correo y escr\u00edbelo en '
+                        'la siguiente pantalla.',
                         textAlign: TextAlign.center,
                         style: TextStyle(fontSize: 12,
                           color: AppColors.textSecondary)),
@@ -103,8 +104,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 children: [
                   const Text(
                     'Ingresa tu correo institucional y te '
-                    'enviaremos un enlace para restablecer '
-                    'tu contraseña.',
+                    'enviaremos un c\u00f3digo para restablecer '
+                    'tu contrase\u00f1a.',
                     style: TextStyle(fontSize: 13,
                       color: AppColors.textSecondary)),
                   const SizedBox(height: 16),
@@ -118,8 +119,14 @@ class _LoginScreenState extends State<LoginScreen> {
           actions: sent
             ? [
                 ElevatedButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cerrar')),
+                  onPressed: () {
+                    Navigator.pop(ctx);
+                    Navigator.push(context,
+                      MaterialPageRoute(builder: (_) =>
+                        VerifyResetCodeScreen(
+                          email: emailCtrl.text.trim())));
+                  },
+                  child: const Text('Ya tengo mi c\u00f3digo')),
               ]
             : [
                 TextButton(
@@ -155,11 +162,10 @@ class _LoginScreenState extends State<LoginScreen> {
                         width: 16, height: 16,
                         child: CircularProgressIndicator(
                           color: Colors.white, strokeWidth: 2))
-                    : const Text('Enviar enlace')),
+                    : const Text('Enviar c\u00f3digo')),
               ],
         )));
   }
-
   void _showRegisterDialog() {
     final nameCtrl  = TextEditingController();
     final emailCtrl = TextEditingController();
