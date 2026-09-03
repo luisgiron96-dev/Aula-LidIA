@@ -233,7 +233,7 @@ class _LiveTab extends StatelessWidget {
           child: ElevatedButton.icon(
             onPressed: () => Navigator.push(context,
               MaterialPageRoute(
-                builder: (_) => const LiveClassScreen())),
+                builder: (_) => const LiveClassesScreen(role: 'teacher'))),
             icon: const Icon(Icons.broadcast_on_home_outlined, size: 16),
             label: const Text('Iniciar clase ahora'),
             style: ElevatedButton.styleFrom(
