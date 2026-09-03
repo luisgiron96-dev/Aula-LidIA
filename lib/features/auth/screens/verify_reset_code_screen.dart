@@ -26,8 +26,8 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
     final pass = _passwordCtrl.text.trim();
     final confirm = _confirmCtrl.text.trim();
 
-    if (code.length < 6) {
-      setState(() => _error = 'Ingresa el código de 6 dígitos del correo.');
+    if (code.length < 4) {
+      setState(() => _error = 'Ingresa el código que te llegó al correo.');
       return;
     }
     if (pass.length < 6) {
@@ -46,15 +46,12 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
     });
 
     try {
-      // Verifica el código: esto crea una sesión temporal de recuperación
       await SupabaseService.client.auth.verifyOTP(
         email: widget.email,
         token: code,
         type: OtpType.recovery,
       );
 
-      // Con la sesión de recuperación activa, ya se puede cambiar la
-      // contraseña
       await SupabaseService.client.auth.updateUser(
         UserAttributes(password: pass));
 
@@ -115,7 +112,7 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                     color: AppColors.textPrimary)),
                 const SizedBox(height: 6),
                 Text(
-                  'Escribe el código de 6 dígitos que enviamos a '
+                  'Escribe el código que enviamos a '
                   '${widget.email}, y tu nueva contraseña.',
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 12,
@@ -125,14 +122,14 @@ class _VerifyResetCodeScreenState extends State<VerifyResetCodeScreen> {
                 TextField(
                   controller: _codeCtrl,
                   keyboardType: TextInputType.number,
-                  maxLength: 6,
+                  maxLength: 10,
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 20, letterSpacing: 6),
+                  style: const TextStyle(fontSize: 20, letterSpacing: 4),
                   decoration: InputDecoration(
                     filled: true,
                     fillColor: Colors.white,
                     counterText: '',
-                    hintText: '000000',
+                    hintText: 'Código del correo',
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
                       borderSide: BorderSide.none)),
