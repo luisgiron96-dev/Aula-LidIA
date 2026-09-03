@@ -27,18 +27,25 @@ class LiveClassController {
 
   // Clases que ya pasaron (últimas 20)
   static Future<List<LiveClassModel>> fetchPast() async {
-    final nowIso = DateTime.now().toIso8601String();
+    // Margen amplio: traemos también las que empezaron hace poco
+    // y las filtramos de verdad en el cliente con isPast (usa la duración).
+    final windowIso = DateTime.now()
+      .subtract(const Duration(days: 30))
+      .toIso8601String();
 
     final data = await SupabaseService.client
       .from('live_classes')
       .select(_selectWithJoins)
-      .lt('scheduled_at', nowIso)
+      .gte('scheduled_at', windowIso)
       .order('scheduled_at', ascending: false)
-      .limit(20);
+      .limit(50);
 
-    return (data as List)
+    final classes = (data as List)
       .map((json) => LiveClassModel.fromJson(json as Map<String, dynamic>))
       .toList();
+
+    // Solo las que ya terminaron de verdad (hora inicio + duración < ahora)
+    return classes.where((c) => c.isPast).take(20).toList();
   }
 
   // Crea una nueva clase en vivo (solo docentes, según RLS)
