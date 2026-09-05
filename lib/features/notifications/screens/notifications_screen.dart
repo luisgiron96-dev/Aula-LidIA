@@ -1,5 +1,7 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
+import '../../../data/models/notification_model.dart';
+import '../controllers/notifications_controller.dart';
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -9,96 +11,85 @@ class NotificationsScreen extends StatefulWidget {
 
 class _NotificationsScreenState extends State<NotificationsScreen> {
   int _filterIndex = 0;
+  List<NotificationModel> _notifications = [];
+  bool _loading = true;
 
-  final List<Map<String, dynamic>> _notifications = [
-    {
-      'type': 'live',
-      'title': 'Clase en vivo ahora',
-      'body': 'Prof. Mariela inició la clase de Matemáticas',
-      'time': 'Hace 2 min',
-      'read': false,
-    },
-    {
-      'type': 'task',
-      'title': 'Tarea próxima a vencer',
-      'body': 'Ejercicios cap. 3 vence hoy a las 11:59 pm',
-      'time': 'Hace 1 hora',
-      'read': false,
-    },
-    {
-      'type': 'video',
-      'title': 'Nuevo video disponible',
-      'body': 'Prof. Mariela subió: Fracciones — Clase 4',
-      'time': 'Hace 3 horas',
-      'read': false,
-    },
-    {
-      'type': 'message',
-      'title': 'Mensaje de tu docente',
-      'body': 'Recuerden entregar el taller antes del viernes',
-      'time': 'Ayer 4:30 pm',
-      'read': true,
-    },
-    {
-      'type': 'task',
-      'title': 'Tarea entregada',
-      'body': 'Tu tarea de Español fue recibida correctamente ✓',
-      'time': 'Ayer 2:15 pm',
-      'read': true,
-    },
-    {
-      'type': 'live',
-      'title': 'Clase programada',
-      'body': 'Mañana a las 9:00 am — Cs. Naturales con Prof. García',
-      'time': 'Ayer 10:00 am',
-      'read': true,
-    },
-    {
-      'type': 'video',
-      'title': 'Nuevo recurso disponible',
-      'body': 'Se agregó una guía de estudio en Inglés — Unit 2',
-      'time': 'Hace 2 días',
-      'read': true,
-    },
-    {
-      'type': 'message',
-      'title': 'Felicitaciones',
-      'body': 'Obtuviste 95% en el quiz de Matemáticas 🎉',
-      'time': 'Hace 3 días',
-      'read': true,
-    },
-  ];
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
 
-  List<Map<String, dynamic>> get _filtered {
+  Future<void> _load() async {
+    setState(() => _loading = true);
+    try {
+      final list = await NotificationsController.fetchAll();
+      if (!mounted) return;
+      setState(() {
+        _notifications = list;
+        _loading = false;
+      });
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error cargando notificaciones: $e');
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  List<NotificationModel> get _filtered {
     if (_filterIndex == 0) return _notifications;
     if (_filterIndex == 1) {
-      return _notifications.where((n) => !n['read']).toList();
+      return _notifications.where((n) => !n.read).toList();
     }
-    final types = ['live', 'task', 'video', 'message'];
+    final types = ['live', 'task', 'video', 'grade'];
     final typeIndex = _filterIndex - 2;
     if (typeIndex < 0 || typeIndex >= types.length) return _notifications;
     return _notifications
-      .where((n) => n['type'] == types[typeIndex])
+      .where((n) => n.type == types[typeIndex])
       .toList();
   }
 
-  int get _unreadCount =>
-    _notifications.where((n) => !n['read']).length;
+  int get _unreadCount => _notifications.where((n) => !n.read).length;
 
-  void _markAllRead() {
+  Future<void> _markAllRead() async {
     setState(() {
-      for (var n in _notifications) {
-        n['read'] = true;
-      }
+      _notifications = _notifications
+        .map((n) => NotificationModel(id: n.id, type: n.type,
+          title: n.title, body: n.body, read: true,
+          createdAt: n.createdAt))
+        .toList();
     });
+    try {
+      await NotificationsController.markAllRead();
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error marcando notificaciones: $e');
+    }
+  }
+
+  Future<void> _markOneRead(NotificationModel n) async {
+    if (n.read) return;
+    setState(() {
+      _notifications = _notifications.map((item) =>
+        item.id == n.id
+          ? NotificationModel(id: item.id, type: item.type,
+              title: item.title, body: item.body, read: true,
+              createdAt: item.createdAt)
+          : item).toList();
+    });
+    try {
+      await NotificationsController.markRead(n.id);
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error marcando notificación: $e');
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      // En móvil la barra superior ya la muestra MainLayout, así que aquí
-      // solo se dibuja en escritorio (donde MainLayout no tiene barra propia).
       appBar: MediaQuery.of(context).size.width < 700 ? null : AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -164,7 +155,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                 active: _filterIndex == 4,
                 onTap: () => setState(() => _filterIndex = 4)),
               const SizedBox(width: 8),
-              _FilterChip(label: 'Mensajes',
+              _FilterChip(label: 'Notas',
                 active: _filterIndex == 5,
                 onTap: () => setState(() => _filterIndex = 5)),
             ]),
@@ -173,32 +164,38 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
         // Lista
         Expanded(
-          child: _filtered.isEmpty
-            ? const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.notifications_off_outlined,
-                      size: 48, color: AppColors.textSecondary),
-                    SizedBox(height: 12),
-                    Text('No hay notificaciones',
-                      style: TextStyle(fontSize: 14,
-                        color: AppColors.textSecondary)),
-                  ]))
-            : ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: _filtered.length,
-                itemBuilder: (_, i) {
-                  final n = _filtered[i];
-                  return _NotificationCard(
-                    type: n['type'],
-                    title: n['title'],
-                    body: n['body'],
-                    time: n['time'],
-                    read: n['read'],
-                    onTap: () => setState(() => n['read'] = true),
-                  );
-                }),
+          child: _loading
+            ? const Center(child: CircularProgressIndicator(
+                color: AppColors.primary))
+            : _filtered.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.notifications_off_outlined,
+                        size: 48, color: AppColors.textSecondary),
+                      SizedBox(height: 12),
+                      Text('No hay notificaciones',
+                        style: TextStyle(fontSize: 14,
+                          color: AppColors.textSecondary)),
+                    ]))
+              : RefreshIndicator(
+                  onRefresh: _load,
+                  color: AppColors.primary,
+                  child: ListView.builder(
+                    padding: const EdgeInsets.all(16),
+                    itemCount: _filtered.length,
+                    itemBuilder: (_, i) {
+                      final n = _filtered[i];
+                      return _NotificationCard(
+                        type: n.type,
+                        title: n.title,
+                        body: n.body,
+                        time: n.timeAgo,
+                        read: n.read,
+                        onTap: () => _markOneRead(n),
+                      );
+                    })),
         ),
       ]),
     );
@@ -223,21 +220,21 @@ class _NotificationCard extends StatelessWidget {
 
   IconData get _icon {
     switch (type) {
-      case 'live':    return Icons.videocam_outlined;
-      case 'task':    return Icons.assignment_outlined;
-      case 'video':   return Icons.play_circle_outline;
-      case 'message': return Icons.chat_outlined;
-      default:        return Icons.notifications_outlined;
+      case 'live':  return Icons.videocam_outlined;
+      case 'task':  return Icons.assignment_outlined;
+      case 'video': return Icons.play_circle_outline;
+      case 'grade': return Icons.grade_outlined;
+      default:      return Icons.notifications_outlined;
     }
   }
 
   Color get _color {
     switch (type) {
-      case 'live':    return AppColors.primary;
-      case 'task':    return const Color(0xFFEF9F27);
-      case 'video':   return const Color(0xFF378ADD);
-      case 'message': return const Color(0xFF534AB7);
-      default:        return AppColors.textSecondary;
+      case 'live':  return AppColors.primary;
+      case 'task':  return const Color(0xFFEF9F27);
+      case 'video': return const Color(0xFF378ADD);
+      case 'grade': return const Color(0xFF534AB7);
+      default:      return AppColors.textSecondary;
     }
   }
 
@@ -257,8 +254,6 @@ class _NotificationCard extends StatelessWidget {
               : _color.withOpacity(0.3))),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-
-            // Ícono
             Container(
               width: 40, height: 40,
               decoration: BoxDecoration(
@@ -266,8 +261,6 @@ class _NotificationCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(10)),
               child: Icon(_icon, color: _color, size: 20)),
             const SizedBox(width: 12),
-
-            // Contenido
             Expanded(child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

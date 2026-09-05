@@ -51,6 +51,12 @@ class SupabaseService {
     );
   }
 
+  // Cambiar contraseña estando ya con sesión iniciada
+  static Future<void> updatePassword(String newPassword) async {
+    await client.auth.updateUser(
+      UserAttributes(password: newPassword));
+  }
+
   // Usuario actual
   static User? get currentUser => client.auth.currentUser;
 
@@ -88,5 +94,44 @@ class SupabaseService {
     } catch (e) {
       return currentUser?.userMetadata?['full_name'] ?? '';
     }
+  }
+
+  // Actualiza el nombre completo del usuario actual
+  static Future<void> updateFullName(String fullName) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    await client
+      .from('profiles')
+      .update({'full_name': fullName})
+      .eq('id', user.id);
+  }
+
+  // Preferencia de notificaciones
+  static Future<bool> getNotificationsEnabled() async {
+    try {
+      final user = currentUser;
+      if (user == null) return true;
+
+      final data = await client
+        .from('profiles')
+        .select('notifications_enabled')
+        .eq('id', user.id)
+        .single();
+
+      return data['notifications_enabled'] as bool? ?? true;
+    } catch (e) {
+      return true;
+    }
+  }
+
+  static Future<void> setNotificationsEnabled(bool enabled) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    await client
+      .from('profiles')
+      .update({'notifications_enabled': enabled})
+      .eq('id', user.id);
   }
 }
