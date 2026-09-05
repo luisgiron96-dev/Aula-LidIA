@@ -44,6 +44,46 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     }
   }
 
+  Future<void> _confirmDelete(StudentSummaryModel student) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Eliminar estudiante'),
+        content: Text(
+          '¿Seguro que quieres eliminar a ${student.fullName} de la plataforma? '
+          'Esta acción no se puede deshacer.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancelar')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: const Text('Eliminar',
+              style: TextStyle(color: Colors.red))),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      await TeacherController.deleteStudent(student.id);
+      if (!mounted) return;
+      setState(() {
+        _students.removeWhere((s) => s.id == student.id);
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('${student.fullName} fue eliminado.')));
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error eliminando estudiante: $e');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text(
+          'No se pudo eliminar al estudiante. Intenta de nuevo.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -113,7 +153,10 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
             children: _students.asMap().entries.map((entry) {
               final i = entry.key;
               final s = entry.value;
-              return _StudentRow(student: s, colorIndex: i);
+              return _StudentRow(
+                student: s,
+                colorIndex: i,
+                onDelete: () => _confirmDelete(s));
             }).toList(),
           ),
         ),
@@ -125,7 +168,12 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
 class _StudentRow extends StatelessWidget {
   final StudentSummaryModel student;
   final int colorIndex;
-  const _StudentRow({required this.student, required this.colorIndex});
+  final VoidCallback onDelete;
+  const _StudentRow({
+    required this.student,
+    required this.colorIndex,
+    required this.onDelete,
+  });
 
   static const _avatarColors = [
     Color(0xFF9FE1CB), Color(0xFFB5D4F4), Color(0xFFEEEDFE),
@@ -184,6 +232,11 @@ class _StudentRow extends StatelessWidget {
               color: isLow
                 ? const Color(0xFF633806)
                 : AppColors.primaryDark))),
+        IconButton(
+          icon: const Icon(Icons.delete_outline,
+            color: Colors.red, size: 20),
+          tooltip: 'Eliminar estudiante',
+          onPressed: onDelete),
       ]),
     );
   }

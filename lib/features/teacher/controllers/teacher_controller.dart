@@ -48,4 +48,13 @@ class TeacherController {
       );
     }).toList();
   }
+
+  // Elimina el perfil de un estudiante de la plataforma
+  // (no borra su cuenta de acceso, solo su registro en la app)
+  static Future<void> deleteStudent(String studentId) async {
+    await SupabaseService.client
+      .from('profiles')
+      .delete()
+      .eq('id', studentId);
+  }
 }
