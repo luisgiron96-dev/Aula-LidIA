@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/video_model.dart';
 import '../controllers/subject_controller.dart';
@@ -105,7 +106,7 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
 
             // Pestañas
             Row(children: [
-              _TabBtn(label: 'Videos',
+              _TabBtn(label: 'Contenido',
                 icon: Icons.play_circle_outline,
                 active: _tabIndex == 0,
                 onTap: () => setState(() => _tabIndex = 0)),
@@ -186,19 +187,38 @@ class _VideosTabState extends State<_VideosTab> {
     widget.onProgressChanged(viewedCount / _videos.length);
   }
 
-  Future<void> _markViewed(VideoModel video) async {
-    if (video.viewed) return;
-    // Optimista: actualiza la UI antes de esperar la respuesta del servidor
-    setState(() {
-      _videos = _videos.map((v) =>
-        v.id == video.id ? v.copyWith(viewed: true) : v).toList();
-    });
-    _reportProgress();
-    try {
-      await SubjectController.markLessonViewed(video.id);
-    } catch (e) {
-      // ignore: avoid_print
-      print('Error guardando progreso: $e');
+  Future<void> _openContent(VideoModel video) async {
+    if (!video.viewed) {
+      // Optimista: actualiza la UI antes de esperar la respuesta del servidor
+      setState(() {
+        _videos = _videos.map((v) =>
+          v.id == video.id ? v.copyWith(viewed: true) : v).toList();
+      });
+      _reportProgress();
+      try {
+        await SubjectController.markLessonViewed(video.id);
+      } catch (e) {
+        // ignore: avoid_print
+        print('Error guardando progreso: $e');
+      }
+    }
+
+    final url = video.videoUrl;
+    if (url == null || url.isEmpty) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Este contenido no tiene un archivo asociado')));
+      return;
+    }
+
+    // PDF y PPTX se abren en la app externa del dispositivo.
+    // El video, por ahora, también se abre externamente (falta un
+    // reproductor embebido tipo video_player/chewie).
+    final uri = Uri.parse(url);
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No se pudo abrir el archivo')));
     }
   }
 
@@ -226,20 +246,20 @@ class _VideosTabState extends State<_VideosTab> {
       return const Padding(
         padding: EdgeInsets.symmetric(vertical: 24),
         child: Center(child: Text(
-          'Todavía no hay videos para esta materia.',
+          'Todavía no hay contenido para esta materia.',
           style: TextStyle(color: AppColors.textSecondary))));
     }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('${_videos.length} videos disponibles',
+        Text('${_videos.length} elementos disponibles',
           style: const TextStyle(fontSize: 12,
             color: AppColors.textSecondary)),
         const SizedBox(height: 10),
         ..._videos.map((v) => _VideoCard(
           video: v,
-          onTap: () => _markViewed(v),
+          onTap: () => _openContent(v),
         )),
       ],
     );
@@ -273,6 +293,25 @@ class _VideoCard extends StatelessWidget {
   final VoidCallback onTap;
   const _VideoCard({required this.video, required this.onTap});
 
+  IconData get _icon {
+    switch (video.tipo) {
+      case 'pdf': return Icons.picture_as_pdf_outlined;
+      case 'pptx': return Icons.slideshow_outlined;
+      case 'video': return Icons.play_circle_outline;
+      default: return Icons.insert_drive_file_outlined;
+    }
+  }
+
+  Color get _thumbColor {
+    switch (video.tipo) {
+      case 'pdf': return const Color(0xFF8A2C2C);
+      case 'pptx': return const Color(0xFF9A5A16);
+      default: return const Color(0xFF085041);
+    }
+  }
+
+  String get _actionLabel => video.tipo == 'video' ? 'Ver' : 'Abrir';
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -283,16 +322,16 @@ class _VideoCard extends StatelessWidget {
         border: Border.all(color: Colors.grey.shade200)),
       child: Row(children: [
 
-        // Miniatura video
+        // Miniatura
         Container(
           width: 90, height: 68,
           decoration: BoxDecoration(
-            color: const Color(0xFF085041),
+            color: _thumbColor,
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(10),
               bottomLeft: Radius.circular(10))),
           child: Stack(alignment: Alignment.center, children: [
-            Icon(Icons.play_circle_outline,
+            Icon(_icon,
               color: Colors.white.withOpacity(0.9), size: 28),
             if (video.viewed)
               Positioned(
@@ -319,13 +358,15 @@ class _VideoCard extends StatelessWidget {
                     color: AppColors.textPrimary)),
                 const SizedBox(height: 4),
                 Row(children: [
-                  const Icon(Icons.access_time,
-                    size: 11, color: AppColors.textSecondary),
-                  const SizedBox(width: 3),
-                  Text('${video.durationMinutes} min',
-                    style: const TextStyle(fontSize: 10,
-                      color: AppColors.textSecondary)),
-                  const SizedBox(width: 10),
+                  if (video.tipo == 'video') ...[
+                    const Icon(Icons.access_time,
+                      size: 11, color: AppColors.textSecondary),
+                    const SizedBox(width: 3),
+                    Text('${video.durationMinutes} min',
+                      style: const TextStyle(fontSize: 10,
+                        color: AppColors.textSecondary)),
+                    const SizedBox(width: 10),
+                  ],
                   if (video.viewed)
                     const Text('Visto ✓',
                       style: TextStyle(fontSize: 10,
@@ -345,8 +386,8 @@ class _VideoCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: AppColors.primary,
                 borderRadius: BorderRadius.circular(6)),
-              child: const Text('Ver',
-                style: TextStyle(fontSize: 11,
+              child: Text(_actionLabel,
+                style: const TextStyle(fontSize: 11,
                   color: Colors.white,
                   fontWeight: FontWeight.w500))))),
       ]),

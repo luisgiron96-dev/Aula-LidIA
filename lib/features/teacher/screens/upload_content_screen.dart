@@ -3,6 +3,8 @@ import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
+import '../../../data/models/subject_model.dart';
+import '../../subjects/controllers/subject_controller.dart';
 
 class UploadContentScreen extends StatefulWidget {
   const UploadContentScreen({super.key});
@@ -14,34 +16,47 @@ class UploadContentScreen extends StatefulWidget {
 class _UploadContentScreenState extends State<UploadContentScreen> {
   final _titleCtrl = TextEditingController();
   final _descCtrl  = TextEditingController();
-  String _selectedMateria = 'Matemáticas';
+  List<SubjectModel> _subjects = [];
+  SubjectModel? _selectedSubject;
   PlatformFile? _selectedFile;
   bool _isUploading = false;
+  bool _isLoadingSubjects = true;
   double _uploadProgress = 0;
   String _statusMsg = '';
-
-  final List<String> _materias = [
-    'Español', 'Inglés', 'Matemáticas',
-    'Cs. Sociales', 'Cs. Naturales',
-    'Cátedra de Paz', 'Religión',
-    'Informática', 'TelePsicología',
-  ];
 
   final List<Map<String, dynamic>> _uploadedContent = [];
 
   @override
   void initState() {
     super.initState();
+    _loadSubjects();
     _loadContent();
+  }
+
+  Future<void> _loadSubjects() async {
+    try {
+      final subjects = await SubjectController.fetchSubjects();
+      if (!mounted) return;
+      setState(() {
+        _subjects = subjects;
+        _selectedSubject = subjects.isNotEmpty ? subjects.first : null;
+        _isLoadingSubjects = false;
+      });
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error cargando materias: $e');
+      if (!mounted) return;
+      setState(() => _isLoadingSubjects = false);
+    }
   }
 
   Future<void> _loadContent() async {
     try {
       final data = await SupabaseService.client
-        .from('contenido')
+        .from('lessons')
         .select()
         .eq('teacher_id', SupabaseService.currentUser!.id)
-        .order('created_at', ascending: false);
+        .order('sort_order', ascending: false);
 
       setState(() {
         _uploadedContent.clear();
@@ -61,7 +76,15 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
     );
 
     if (result != null && result.files.isNotEmpty) {
-      setState(() => _selectedFile = result.files.first);
+      final file = result.files.first;
+      const maxSizeBytes = 200 * 1024 * 1024; // 200 MB
+      if (file.size > maxSizeBytes) {
+        _showSnack(
+          'El archivo pesa más de 200 MB, elige uno más liviano',
+          isError: true);
+        return;
+      }
+      setState(() => _selectedFile = file);
     }
   }
 
@@ -85,6 +108,10 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
       _showSnack('Escribe un título', isError: true);
       return;
     }
+    if (_selectedSubject == null) {
+      _showSnack('Selecciona una materia', isError: true);
+      return;
+    }
 
     setState(() {
       _isUploading = true;
@@ -95,6 +122,7 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
     try {
       final file = _selectedFile!;
       final ext = file.extension ?? 'bin';
+      final tipo = _getTipo(ext);
       final fileName =
         '${DateTime.now().millisecondsSinceEpoch}_${file.name}';
       final storagePath =
@@ -124,15 +152,17 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
         .from('contenido')
         .getPublicUrl(storagePath);
 
-      // Guardar en tabla contenido
-      await SupabaseService.client.from('contenido').insert({
-        'titulo': _titleCtrl.text.trim(),
+      // Guardar en la tabla lessons (misma tabla que lee el estudiante)
+      await SupabaseService.client.from('lessons').insert({
+        'subject_id': _selectedSubject!.id,
+        'title': _titleCtrl.text.trim(),
         'descripcion': _descCtrl.text.trim(),
-        'materia': _selectedMateria,
-        'tipo': _getTipo(ext),
-        'url': url,
+        'tipo': tipo,
+        'video_url': url,
         'storage_path': storagePath,
         'teacher_id': SupabaseService.currentUser!.id,
+        'duration_minutes': 0,
+        'sort_order': 0,
       });
 
       setState(() {
@@ -176,13 +206,15 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
   }
 
   Future<void> _deleteContent(
-    String id, String storagePath) async {
+    String id, String? storagePath) async {
     try {
-      await SupabaseService.client.storage
-        .from('contenido')
-        .remove([storagePath]);
+      if (storagePath != null) {
+        await SupabaseService.client.storage
+          .from('contenido')
+          .remove([storagePath]);
+      }
       await SupabaseService.client
-        .from('contenido')
+        .from('lessons')
         .delete()
         .eq('id', id);
       _showSnack('Contenido eliminado');
@@ -265,29 +297,41 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
                         horizontal: 12, vertical: 10))),
                   const SizedBox(height: 12),
 
-                  // Materia
+                  // Materia (ahora cargada desde la tabla subjects)
                   const Text('Materia',
                     style: TextStyle(fontSize: 12,
                       color: AppColors.textSecondary)),
                   const SizedBox(height: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: const Color(0xFFF5F5F5),
-                      borderRadius: BorderRadius.circular(8)),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedMateria,
-                        isExpanded: true,
-                        items: _materias.map((m) =>
-                          DropdownMenuItem(
-                            value: m,
-                            child: Text(m,
-                              style: const TextStyle(
-                                fontSize: 13)))).toList(),
-                        onChanged: (v) => setState(
-                          () => _selectedMateria = v!)))),
+                  _isLoadingSubjects
+                    ? const Padding(
+                        padding: EdgeInsets.symmetric(vertical: 8),
+                        child: SizedBox(
+                          width: 16, height: 16,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2)))
+                    : _subjects.isEmpty
+                      ? const Text(
+                          'No hay materias creadas todavía',
+                          style: TextStyle(fontSize: 12,
+                            color: AppColors.textSecondary))
+                      : Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFF5F5F5),
+                            borderRadius: BorderRadius.circular(8)),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<SubjectModel>(
+                              value: _selectedSubject,
+                              isExpanded: true,
+                              items: _subjects.map((s) =>
+                                DropdownMenuItem(
+                                  value: s,
+                                  child: Text('${s.icon} ${s.name}',
+                                    style: const TextStyle(
+                                      fontSize: 13)))).toList(),
+                              onChanged: (v) => setState(
+                                () => _selectedSubject = v)))),
                   const SizedBox(height: 16),
 
                   // Zona de archivo
@@ -336,7 +380,7 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
                               color: AppColors.textSecondary)),
                         if (_selectedFile == null)
                           const Text(
-                            'MP4 · AVI · MOV · PDF · PPTX',
+                            'MP4 · AVI · MOV · PDF · PPTX (máx. 200 MB)',
                             style: TextStyle(fontSize: 11,
                               color: AppColors.textSecondary)),
                       ]))),
@@ -461,11 +505,11 @@ class _ContentCard extends StatelessWidget {
         Expanded(child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(content['titulo'] ?? '',
+            Text(content['title'] ?? '',
               style: const TextStyle(fontSize: 13,
                 fontWeight: FontWeight.w500,
                 color: AppColors.textPrimary)),
-            Text(content['materia'] ?? '',
+            Text(content['tipo'] ?? '',
               style: const TextStyle(fontSize: 11,
                 color: AppColors.textSecondary)),
           ])),
