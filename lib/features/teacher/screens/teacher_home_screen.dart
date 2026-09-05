@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../live_class/screens/live_class_screen.dart';
+import '../../live_class/screens/create_live_class_screen.dart';
+import '../../tasks/screens/teacher_tasks_screen.dart';
 
 class TeacherHomeScreen extends StatefulWidget {
   final String userName;
@@ -111,12 +113,18 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
                 icon: Icons.people_outline,
                 active: _tabIndex == 2,
                 onTap: () => setState(() => _tabIndex = 2)),
+              const SizedBox(width: 8),
+              _TabBtn(label: 'Tareas',
+                icon: Icons.checklist_outlined,
+                active: _tabIndex == 3,
+                onTap: () => setState(() => _tabIndex = 3)),
             ]),
             const SizedBox(height: 12),
 
             if (_tabIndex == 0) _UploadTab(),
             if (_tabIndex == 1) _LiveTab(),
             if (_tabIndex == 2) _StudentsTab(),
+            if (_tabIndex == 3) _TasksTab(),
           ],
         ),
       ),
@@ -208,23 +216,14 @@ class _LiveTab extends StatelessWidget {
             child: const Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.videocam_off_outlined,
+                Icon(Icons.videocam_outlined,
                   color: Colors.white38, size: 32),
                 SizedBox(height: 6),
-                Text('Cámara apagada',
+                Text('Programa tu clase con un enlace externo\n'
+                  '(Zoom, Google Meet, Jitsi...)',
+                  textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white38, fontSize: 12)),
               ])),
-          const SizedBox(height: 16),
-          Wrap(spacing: 8, runSpacing: 8,
-            alignment: WrapAlignment.center,
-            children: [
-              _CtrlBtn(icon: Icons.mic_outlined, label: 'Micrófono'),
-              _CtrlBtn(icon: Icons.videocam_outlined, label: 'Cámara'),
-              _CtrlBtn(icon: Icons.screen_share_outlined, label: 'Compartir'),
-              _CtrlBtn(icon: Icons.chat_outlined, label: 'Chat'),
-              _CtrlBtn(icon: Icons.call_end_outlined,
-                label: 'Terminar', isRed: true),
-            ]),
         ]),
       ),
       const SizedBox(height: 12),
@@ -233,16 +232,19 @@ class _LiveTab extends StatelessWidget {
           child: ElevatedButton.icon(
             onPressed: () => Navigator.push(context,
               MaterialPageRoute(
-                builder: (_) => const LiveClassesScreen(role: 'teacher'))),
-            icon: const Icon(Icons.broadcast_on_home_outlined, size: 16),
-            label: const Text('Iniciar clase ahora'),
+                builder: (_) =>
+                  const LiveClassesScreen(role: 'teacher'))),
+            icon: const Icon(Icons.videocam_outlined, size: 16),
+            label: const Text('Ver mis clases'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
               minimumSize: const Size(double.infinity, 44)))),
         const SizedBox(width: 8),
         OutlinedButton.icon(
-          onPressed: () {},
+          onPressed: () => Navigator.push(context,
+            MaterialPageRoute(
+              builder: (_) => const CreateLiveClassScreen())),
           icon: const Icon(Icons.calendar_month_outlined, size: 16),
           label: const Text('Programar'),
           style: OutlinedButton.styleFrom(
@@ -251,6 +253,40 @@ class _LiveTab extends StatelessWidget {
             side: BorderSide(color: Colors.grey.shade300))),
       ]),
     ]);
+  }
+}
+
+class _TasksTab extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade200)),
+      child: Column(children: [
+        const Icon(Icons.checklist_outlined,
+          size: 40, color: AppColors.textSecondary),
+        const SizedBox(height: 8),
+        const Text('Crea y califica las tareas de tus estudiantes',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 13,
+            color: AppColors.textSecondary)),
+        const SizedBox(height: 16),
+        ElevatedButton.icon(
+          onPressed: () => Navigator.push(context,
+            MaterialPageRoute(
+              builder: (_) => const TeacherTasksScreen())),
+          icon: const Icon(Icons.checklist_outlined, size: 16),
+          label: const Text('Ver mis tareas'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size(double.infinity, 44))),
+      ]),
+    );
   }
 }
 
