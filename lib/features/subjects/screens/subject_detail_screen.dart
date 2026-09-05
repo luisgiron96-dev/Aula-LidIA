@@ -187,6 +187,23 @@ class _VideosTabState extends State<_VideosTab> {
     widget.onProgressChanged(viewedCount / _videos.length);
   }
 
+  Future<void> _downloadContent(VideoModel video) async {
+    final url = video.videoUrl;
+    if (url == null || url.isEmpty) return;
+
+    // Supabase Storage descarga el archivo (en vez de mostrarlo en el
+    // navegador) si se le agrega el parámetro "download" a la URL pública.
+    final downloadUrl =
+      '$url${url.contains('?') ? '&' : '?'}download';
+
+    final ok = await launchUrl(Uri.parse(downloadUrl),
+      mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No se pudo descargar el archivo')));
+    }
+  }
+
   Future<void> _openContent(VideoModel video) async {
     if (!video.viewed) {
       // Optimista: actualiza la UI antes de esperar la respuesta del servidor
@@ -260,6 +277,7 @@ class _VideosTabState extends State<_VideosTab> {
         ..._videos.map((v) => _VideoCard(
           video: v,
           onTap: () => _openContent(v),
+          onDownload: () => _downloadContent(v),
         )),
       ],
     );
@@ -291,7 +309,9 @@ class _ComingSoonTab extends StatelessWidget {
 class _VideoCard extends StatelessWidget {
   final VideoModel video;
   final VoidCallback onTap;
-  const _VideoCard({required this.video, required this.onTap});
+  final VoidCallback? onDownload;
+  const _VideoCard({required this.video, required this.onTap,
+    this.onDownload});
 
   IconData get _icon {
     switch (video.tipo) {
@@ -377,7 +397,7 @@ class _VideoCard extends StatelessWidget {
 
         // Botón reproducir
         Padding(
-          padding: const EdgeInsets.only(right: 12),
+          padding: const EdgeInsets.only(right: 8),
           child: GestureDetector(
             onTap: onTap,
             child: Container(
@@ -390,6 +410,29 @@ class _VideoCard extends StatelessWidget {
                 style: const TextStyle(fontSize: 11,
                   color: Colors.white,
                   fontWeight: FontWeight.w500))))),
+
+        // Botón descargar (solo pdf/pptx, para poder usarlos sin conexión)
+        if (onDownload != null &&
+            (video.tipo == 'pdf' || video.tipo == 'pptx'))
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: GestureDetector(
+              onTap: onDownload,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  border: Border.all(color: AppColors.primary),
+                  borderRadius: BorderRadius.circular(6)),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.download_outlined,
+                    size: 13, color: AppColors.primary),
+                  const SizedBox(width: 4),
+                  const Text('Descargar',
+                    style: TextStyle(fontSize: 11,
+                      color: AppColors.primary,
+                      fontWeight: FontWeight.w500)),
+                ])))),
       ]),
     );
   }
