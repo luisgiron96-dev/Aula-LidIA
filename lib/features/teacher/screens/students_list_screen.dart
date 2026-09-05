@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../data/models/student_summary_model.dart';
 import '../controllers/teacher_controller.dart';
+import 'student_grades_screen.dart';
 
 class StudentsListScreen extends StatefulWidget {
   const StudentsListScreen({super.key});
@@ -84,6 +85,15 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
     }
   }
 
+  void _openGrades(StudentSummaryModel student) {
+    Navigator.push(context, MaterialPageRoute(
+      builder: (_) => StudentGradesScreen(
+        studentId: student.id,
+        studentName: student.fullName,
+      ),
+    ));
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -156,6 +166,7 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
               return _StudentRow(
                 student: s,
                 colorIndex: i,
+                onTap: () => _openGrades(s),
                 onDelete: () => _confirmDelete(s));
             }).toList(),
           ),
@@ -168,10 +179,12 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
 class _StudentRow extends StatelessWidget {
   final StudentSummaryModel student;
   final int colorIndex;
+  final VoidCallback onTap;
   final VoidCallback onDelete;
   const _StudentRow({
     required this.student,
     required this.colorIndex,
+    required this.onTap,
     required this.onDelete,
   });
 
@@ -201,43 +214,60 @@ class _StudentRow extends StatelessWidget {
     final progressPct = (student.progress * 100).round();
     final isLow = progressPct < 50;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(color: Colors.grey.shade100))),
-      child: Row(children: [
-        CircleAvatar(
-          radius: 16,
-          backgroundColor: avatarColor,
-          child: Text(_initials,
-            style: TextStyle(fontSize: 10,
-              fontWeight: FontWeight.w500,
-              color: textColor))),
-        const SizedBox(width: 10),
-        Expanded(child: Text(student.fullName,
-          style: const TextStyle(fontSize: 12,
-            color: AppColors.textPrimary))),
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 10, vertical: 3),
-          decoration: BoxDecoration(
-            color: isLow
-              ? const Color(0xFFFAEEDA)
-              : const Color(0xFFE1F5EE),
-            borderRadius: BorderRadius.circular(10)),
-          child: Text('$progressPct% ${isLow ? "⚠" : "✓"}',
-            style: TextStyle(fontSize: 10,
-              fontWeight: FontWeight.w500,
+    return InkWell(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: Colors.grey.shade100))),
+        child: Row(children: [
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: avatarColor,
+            child: Text(_initials,
+              style: TextStyle(fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: textColor))),
+          const SizedBox(width: 10),
+          Expanded(child: Text(student.fullName,
+            style: const TextStyle(fontSize: 12,
+              color: AppColors.textPrimary))),
+          if (student.averageGrade != null) ...[
+            Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10, vertical: 3),
+              margin: const EdgeInsets.only(right: 6),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEEEDFE),
+                borderRadius: BorderRadius.circular(10)),
+              child: Text(
+                'Prom: ${student.averageGrade!.toStringAsFixed(1)}',
+                style: const TextStyle(fontSize: 10,
+                  fontWeight: FontWeight.w500,
+                  color: Color(0xFF534AB7)))),
+          ],
+          Container(
+            padding: const EdgeInsets.symmetric(
+              horizontal: 10, vertical: 3),
+            decoration: BoxDecoration(
               color: isLow
-                ? const Color(0xFF633806)
-                : AppColors.primaryDark))),
-        IconButton(
-          icon: const Icon(Icons.delete_outline,
-            color: Colors.red, size: 20),
-          tooltip: 'Eliminar estudiante',
-          onPressed: onDelete),
-      ]),
+                ? const Color(0xFFFAEEDA)
+                : const Color(0xFFE1F5EE),
+              borderRadius: BorderRadius.circular(10)),
+            child: Text('$progressPct% ${isLow ? "⚠" : "✓"}',
+              style: TextStyle(fontSize: 10,
+                fontWeight: FontWeight.w500,
+                color: isLow
+                  ? const Color(0xFF633806)
+                  : AppColors.primaryDark))),
+          IconButton(
+            icon: const Icon(Icons.delete_outline,
+              color: Colors.red, size: 20),
+            tooltip: 'Eliminar estudiante',
+            onPressed: onDelete),
+        ]),
+      ),
     );
   }
 }
