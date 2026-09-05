@@ -3,13 +3,11 @@ import '../../core/constants/app_colors.dart';
 import '../../core/services/supabase_service.dart';
 import '../../features/student/screens/student_home_screen.dart';
 import '../../features/student/screens/student_profile_screen.dart';
-import '../../features/subjects/screens/subjects_list_screen.dart';
 import '../../features/teacher/screens/teacher_home_screen.dart';
 import '../../features/teacher/screens/teacher_profile_screen.dart';
-import '../../features/teacher/screens/students_list_screen.dart';
+import '../../features/teacher/screens/upload_content_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/chat_ia/screens/chat_ia_screen.dart';
-import '../../features/live_class/screens/live_class_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
 
 const double kMobileBreakpoint = 700;
@@ -105,8 +103,6 @@ class _MainLayoutState extends State<MainLayout> {
     if (widget.role == 'student') {
       switch (_selectedIndex) {
         case 0: return StudentHomeScreen(userName: _userName);
-        case 1: return const SubjectsListScreen();
-        case 2: return const LiveClassesScreen(role: 'student');
         case 3: return const ChatIAScreen();
         case 4: return const NotificationsScreen();
         case 5: return StudentProfileScreen(userName: _userName);
@@ -116,8 +112,7 @@ class _MainLayoutState extends State<MainLayout> {
     } else {
       switch (_selectedIndex) {
         case 0: return TeacherHomeScreen(userName: _userName);
-        case 2: return const LiveClassesScreen(role: 'teacher');
-        case 3: return const StudentsListScreen();
+        case 1: return const UploadContentScreen();
         case 4: return const ChatIAScreen();
         case 5: return const NotificationsScreen();
         case 6: return TeacherProfileScreen(userName: _userName);
