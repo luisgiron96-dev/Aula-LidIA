@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../data/models/subject_model.dart';
@@ -485,9 +486,28 @@ class _ContentCard extends StatelessWidget {
     }
   }
 
+  Future<void> _open(BuildContext context) async {
+    final url = content['video_url'] as String?;
+    if (url == null || url.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Este contenido no tiene un archivo asociado')));
+      return;
+    }
+    final ok = await launchUrl(Uri.parse(url),
+      mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text(
+          'No se pudo abrir el archivo. Revisa que el bucket '
+          '"contenido" en Supabase Storage sea Public.')));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return GestureDetector(
+      onTap: () => _open(context),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -536,6 +556,7 @@ class _ContentCard extends StatelessWidget {
                   child: const Text('Eliminar')),
               ]))),
       ]),
+      ),
     );
   }
 }
