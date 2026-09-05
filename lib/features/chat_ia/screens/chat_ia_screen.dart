@@ -88,7 +88,7 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           'Authorization': 'Bearer $_groqApiKey',
         },
         body: jsonEncode({
-          'model': 'llama-3.1-8b-instant',
+          'model': 'llama-3.3-70b-versatile',
           'messages': _groqHistory,
           'max_tokens': 1024,
           'temperature': 0.7,
