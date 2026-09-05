@@ -117,11 +117,11 @@ class _SubjectsListScreenState extends State<SubjectsListScreen> {
       color: AppColors.primary,
       child: GridView.builder(
         padding: const EdgeInsets.all(16),
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 2,
+        gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
+          maxCrossAxisExtent: 220,
           crossAxisSpacing: 10,
           mainAxisSpacing: 10,
-          childAspectRatio: 1.1,
+          mainAxisExtent: 150,
         ),
         itemCount: _subjects.length,
         itemBuilder: (_, i) {
