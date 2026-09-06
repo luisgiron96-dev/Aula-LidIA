@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/services/supabase_service.dart';
@@ -15,9 +16,18 @@ class _LoginScreenState extends State<LoginScreen> {
   String _selectedRole = 'student';
   final _emailCtrl = TextEditingController();
   final _passCtrl  = TextEditingController();
+  final _passFocus = FocusNode();
   bool _isLoading  = false;
   bool _showPass   = false;
   String _errorMsg = '';
+
+  @override
+  void dispose() {
+    _emailCtrl.dispose();
+    _passCtrl.dispose();
+    _passFocus.dispose();
+    super.dispose();
+  }
 
   Future<void> _login() async {
     if (_emailCtrl.text.trim().isEmpty ||
@@ -36,6 +46,9 @@ class _LoginScreenState extends State<LoginScreen> {
       );
 
       if (response.user != null && mounted) {
+        // Confirma al navegador/SO que el login fue exitoso
+        // para que ofrezca guardar el correo y la contraseña.
+        TextInput.finishAutofillContext();
         final role = await SupabaseService.getUserRole();
         if (mounted) {
           Navigator.pushReplacement(context,
@@ -316,28 +329,40 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 20),
 
               // Email
-              TextField(
-                controller: _emailCtrl,
-                keyboardType: TextInputType.emailAddress,
-                decoration: const InputDecoration(
-                  labelText: 'Correo institucional',
-                  hintText: AppStrings.emailHint,
-                  prefixIcon: Icon(Icons.email_outlined))),
-              const SizedBox(height: 12),
+              AutofillGroup(
+                child: Column(children: [
+                  TextField(
+                    controller: _emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.next,
+                    autofillHints: const [AutofillHints.username, AutofillHints.email],
+                    onSubmitted: (_) =>
+                      FocusScope.of(context).requestFocus(_passFocus),
+                    decoration: const InputDecoration(
+                      labelText: 'Correo institucional',
+                      hintText: AppStrings.emailHint,
+                      prefixIcon: Icon(Icons.email_outlined))),
+                  const SizedBox(height: 12),
 
-              // Contraseña
-              TextField(
-                controller: _passCtrl,
-                obscureText: !_showPass,
-                decoration: InputDecoration(
-                  labelText: 'Contraseña',
-                  prefixIcon: const Icon(Icons.lock_outline),
-                  suffixIcon: IconButton(
-                    icon: Icon(_showPass
-                      ? Icons.visibility_off_outlined
-                      : Icons.visibility_outlined),
-                    onPressed: () =>
-                      setState(() => _showPass = !_showPass)))),
+                  // Contraseña
+                  TextField(
+                    controller: _passCtrl,
+                    focusNode: _passFocus,
+                    obscureText: !_showPass,
+                    textInputAction: TextInputAction.done,
+                    autofillHints: const [AutofillHints.password],
+                    onSubmitted: (_) => _isLoading ? null : _login(),
+                    decoration: InputDecoration(
+                      labelText: 'Contraseña',
+                      prefixIcon: const Icon(Icons.lock_outline),
+                      suffixIcon: IconButton(
+                        icon: Icon(_showPass
+                          ? Icons.visibility_off_outlined
+                          : Icons.visibility_outlined),
+                        onPressed: () =>
+                          setState(() => _showPass = !_showPass)))),
+                ]),
+              ),
               const SizedBox(height: 8),
 
               // Error
