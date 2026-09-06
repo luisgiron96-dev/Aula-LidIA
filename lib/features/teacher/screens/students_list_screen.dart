@@ -5,7 +5,8 @@ import '../controllers/teacher_controller.dart';
 import 'student_grades_screen.dart';
 
 class StudentsListScreen extends StatefulWidget {
-  const StudentsListScreen({super.key});
+  final VoidCallback? onBack;
+  const StudentsListScreen({super.key, this.onBack});
 
   @override
   State<StudentsListScreen> createState() => _StudentsListScreenState();
@@ -101,7 +102,10 @@ class _StudentsListScreenState extends State<StudentsListScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back,
+            color: AppColors.textPrimary),
+          onPressed: widget.onBack ?? () => Navigator.pop(context)),
         title: const Text('Estudiantes',
           style: TextStyle(fontSize: 16,
             fontWeight: FontWeight.w500,

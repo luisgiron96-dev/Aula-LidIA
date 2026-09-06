@@ -6,7 +6,8 @@ import '../widgets/subject_card.dart';
 import 'subject_detail_screen.dart';
 
 class SubjectsListScreen extends StatefulWidget {
-  const SubjectsListScreen({super.key});
+  final VoidCallback? onBack;
+  const SubjectsListScreen({super.key, this.onBack});
 
   @override
   State<SubjectsListScreen> createState() => _SubjectsListScreenState();
@@ -63,7 +64,10 @@ class _SubjectsListScreenState extends State<SubjectsListScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back,
+            color: AppColors.textPrimary),
+          onPressed: widget.onBack ?? () => Navigator.pop(context)),
         title: const Text('Mis materias',
           style: TextStyle(fontSize: 16,
             fontWeight: FontWeight.w500,

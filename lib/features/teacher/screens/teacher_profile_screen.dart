@@ -9,7 +9,8 @@ import '../controllers/teacher_controller.dart';
 
 class TeacherProfileScreen extends StatefulWidget {
   final String userName;
-  const TeacherProfileScreen({super.key, this.userName = 'Docente'});
+  final VoidCallback? onBack;
+  const TeacherProfileScreen({super.key, this.userName = 'Docente', this.onBack});
   @override
   State<TeacherProfileScreen> createState() => _TeacherProfileScreenState();
 }
@@ -119,7 +120,10 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back,
+            color: AppColors.textPrimary),
+          onPressed: widget.onBack ?? () => Navigator.pop(context)),
         title: const Text('Mi perfil',
           style: TextStyle(fontSize: 15,
             fontWeight: FontWeight.w500,

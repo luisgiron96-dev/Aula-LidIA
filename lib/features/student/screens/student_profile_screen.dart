@@ -11,7 +11,8 @@ import 'edit_profile_screen.dart';
 
 class StudentProfileScreen extends StatefulWidget {
   final String userName;
-  const StudentProfileScreen({super.key, this.userName = 'Estudiante'});
+  final VoidCallback? onBack;
+  const StudentProfileScreen({super.key, this.userName = 'Estudiante', this.onBack});
   @override
   State<StudentProfileScreen> createState() => _StudentProfileScreenState();
 }
@@ -123,7 +124,10 @@ class _StudentProfileScreenState extends State<StudentProfileScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back,
+            color: AppColors.textPrimary),
+          onPressed: widget.onBack ?? () => Navigator.pop(context)),
         title: const Text('Mi perfil',
           style: TextStyle(fontSize: 15,
             fontWeight: FontWeight.w500,

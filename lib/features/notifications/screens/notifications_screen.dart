@@ -4,7 +4,8 @@ import '../../../data/models/notification_model.dart';
 import '../controllers/notifications_controller.dart';
 
 class NotificationsScreen extends StatefulWidget {
-  const NotificationsScreen({super.key});
+  final VoidCallback? onBack;
+  const NotificationsScreen({super.key, this.onBack});
   @override
   State<NotificationsScreen> createState() => _NotificationsScreenState();
 }
@@ -90,13 +91,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
-      appBar: MediaQuery.of(context).size.width < 700 ? null : AppBar(
+      appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back,
             color: AppColors.textPrimary),
-          onPressed: () => Navigator.pop(context)),
+          onPressed: widget.onBack ?? () => Navigator.pop(context)),
         title: Row(children: [
           const Text('Notificaciones',
             style: TextStyle(fontSize: 15,

@@ -8,7 +8,8 @@ import 'create_live_class_screen.dart';
 
 class LiveClassesScreen extends StatefulWidget {
   final String role; // 'student' o 'teacher'
-  const LiveClassesScreen({super.key, required this.role});
+  final VoidCallback? onBack;
+  const LiveClassesScreen({super.key, required this.role, this.onBack});
 
   @override
   State<LiveClassesScreen> createState() => _LiveClassesScreenState();
@@ -92,7 +93,10 @@ class _LiveClassesScreenState extends State<LiveClassesScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back,
+            color: AppColors.textPrimary),
+          onPressed: widget.onBack ?? () => Navigator.pop(context)),
         title: Text(_isTeacher ? 'Clase en vivo' : 'Clases en vivo',
           style: const TextStyle(fontSize: 16,
             fontWeight: FontWeight.w500,

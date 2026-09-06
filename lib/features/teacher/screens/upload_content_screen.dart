@@ -8,7 +8,8 @@ import '../../../data/models/subject_model.dart';
 import '../../subjects/controllers/subject_controller.dart';
 
 class UploadContentScreen extends StatefulWidget {
-  const UploadContentScreen({super.key});
+  final VoidCallback? onBack;
+  const UploadContentScreen({super.key, this.onBack});
   @override
   State<UploadContentScreen> createState() =>
     _UploadContentScreenState();
@@ -232,7 +233,10 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back,
+            color: AppColors.textPrimary),
+          onPressed: widget.onBack ?? () => Navigator.pop(context)),
         title: const Text('Subir contenido',
           style: TextStyle(fontSize: 15,
             fontWeight: FontWeight.w500,

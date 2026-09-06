@@ -7,7 +7,8 @@ const String _groqApiKey = 'API KEY';
 const String _groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
 class ChatIAScreen extends StatefulWidget {
-  const ChatIAScreen({super.key});
+  final VoidCallback? onBack;
+  const ChatIAScreen({super.key, this.onBack});
   @override
   State<ChatIAScreen> createState() => _ChatIAScreenState();
 }
@@ -163,7 +164,10 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        automaticallyImplyLeading: false,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back,
+            color: AppColors.textPrimary),
+          onPressed: widget.onBack ?? () => Navigator.pop(context)),
         title: Row(children: [
           Container(
             width: 36, height: 36,
