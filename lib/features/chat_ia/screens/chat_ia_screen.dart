@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../../../core/constants/app_colors.dart';
 
-const String _groqApiKey = 'API KEY';
-const String _groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
+// La clave de Groq YA NO vive aquí. Vive en Vercel como variable de
+// entorno GROQ_API_KEY y la usa la función serverless en api/chat.js,
+// que es a quien le hablamos desde la app (nunca directo a Groq).
+final Uri _chatEndpoint = Uri.base.resolve('/api/chat');
 
 class ChatIAScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -83,16 +85,12 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
 
     try {
       final response = await http.post(
-        Uri.parse(_groqUrl),
+        _chatEndpoint,
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_groqApiKey',
         },
         body: jsonEncode({
-          'model': 'llama-3.3-70b-versatile',
           'messages': _groqHistory,
-          'max_tokens': 1024,
-          'temperature': 0.7,
         }),
       ).timeout(const Duration(seconds: 30));
 
@@ -114,7 +112,22 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           });
         });
       } else {
-        setState(() => _errorDetail = 'Status: ${response.statusCode}');
+        String detail = 'Status: ${response.statusCode}';
+        try {
+          final errBody = jsonDecode(response.body);
+          final apiMsg = errBody['error']?['message'];
+          if (apiMsg != null) detail = apiMsg;
+        } catch (_) {}
+
+        if (response.statusCode == 401) {
+          detail = 'Clave de API inválida, expirada o revocada '
+            '(401). Revisa la clave en console.groq.com/keys.';
+        } else if (response.statusCode == 429) {
+          detail = 'Se agotó la cuota o límite de solicitudes '
+            'de la API (429). Revisa tu plan en Groq.';
+        }
+
+        setState(() => _errorDetail = detail);
         _showError();
       }
     } catch (e) {
