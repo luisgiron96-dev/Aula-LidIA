@@ -126,7 +126,7 @@ class _TeacherHomeScreenState extends State<TeacherHomeScreen> {
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 8,
               mainAxisSpacing: 8,
-              childAspectRatio: 2.2,
+              childAspectRatio: 2.6,
               children: [
                 _QuickAction(
                   icon: Icons.upload_outlined,
@@ -196,11 +196,12 @@ class _QuickAction extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14),
+        alignment: Alignment.centerLeft,
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(color: Colors.grey.shade200)),
-        child: Row(children: [
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
           Container(
             width: 36, height: 36,
             decoration: BoxDecoration(
