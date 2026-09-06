@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../auth/screens/login_screen.dart';
+import '../../student/screens/change_password_screen.dart';
+import '../../student/screens/edit_profile_screen.dart';
+import '../../tasks/controllers/task_controller.dart';
+import '../controllers/teacher_controller.dart';
 
 class TeacherProfileScreen extends StatefulWidget {
   final String userName;
@@ -11,16 +15,101 @@ class TeacherProfileScreen extends StatefulWidget {
 }
 
 class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
+  late String _displayName;
   bool _notificationsOn = true;
-  bool _liveAlertsOn    = true;
+
+  bool _loading = true;
+  int _studentsCount = 0;
+  double _avgStudentProgress = 0;
+  double? _avgGrade;
+  int _tasksCreated = 0;
+  int _pendingToGrade = 0;
+  int _liveClassesScheduled = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _displayName = widget.userName;
+    _loadAll();
+  }
 
   String get _avatarText {
-    if (widget.userName.isEmpty) return 'MP';
-    final parts = widget.userName.trim().split(' ');
+    if (_displayName.isEmpty) return 'MP';
+    final parts = _displayName.trim().split(' ');
     if (parts.length >= 2) {
       return '${parts[0][0]}${parts[1][0]}'.toUpperCase();
     }
-    return widget.userName[0].toUpperCase();
+    return _displayName[0].toUpperCase();
+  }
+
+  Future<void> _loadAll() async {
+    setState(() => _loading = true);
+    try {
+      final students = await TeacherController.fetchStudents();
+      final avgProgress = students.isEmpty
+        ? 0.0
+        : students.map((s) => s.progress).reduce((a, b) => a + b) /
+          students.length;
+
+      final gradedStudents = students
+        .where((s) => s.averageGrade != null).toList();
+      final avgGrade = gradedStudents.isEmpty
+        ? null
+        : gradedStudents
+            .map((s) => s.averageGrade!)
+            .reduce((a, b) => a + b) / gradedStudents.length;
+
+      final tasks = await TaskController.fetchTasksForTeacher();
+      int pendingToGrade = 0;
+      for (final t in tasks) {
+        final subs = await TaskController.fetchSubmissions(t.id);
+        pendingToGrade += subs.where(
+          (s) => s.submittedAt != null && s.grade == null).length;
+      }
+
+      final userId = SupabaseService.currentUser?.id;
+      int liveCount = 0;
+      if (userId != null) {
+        final liveData = await SupabaseService.client
+          .from('live_classes')
+          .select('id')
+          .eq('teacher_id', userId);
+        liveCount = (liveData as List).length;
+      }
+
+      final notificationsEnabled =
+        await SupabaseService.getNotificationsEnabled();
+
+      if (!mounted) return;
+      setState(() {
+        _studentsCount = students.length;
+        _avgStudentProgress = avgProgress;
+        _avgGrade = avgGrade;
+        _tasksCreated = tasks.length;
+        _pendingToGrade = pendingToGrade;
+        _liveClassesScheduled = liveCount;
+        _notificationsOn = notificationsEnabled;
+        _loading = false;
+      });
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error cargando perfil docente: $e');
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _showHelpDialog() async {
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Text('Ayuda y soporte'),
+      content: const Text(
+        'Si tienes algún problema con la plataforma, escríbenos a:\n\n'
+        'soporte@aulalidia.com\n\n'
+        'Te responderemos lo antes posible.'),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(ctx),
+          child: const Text('Cerrar')),
+      ]));
   }
 
   @override
@@ -37,7 +126,14 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
             color: AppColors.textPrimary)),
         actions: [
           TextButton.icon(
-            onPressed: () {},
+            onPressed: () async {
+              final newName = await Navigator.push<String>(context,
+                MaterialPageRoute(builder: (_) =>
+                  EditProfileScreen(currentName: _displayName)));
+              if (newName != null && newName.isNotEmpty) {
+                setState(() => _displayName = newName);
+              }
+            },
             icon: const Icon(Icons.edit_outlined,
               size: 16, color: AppColors.primary),
             label: const Text('Editar',
@@ -45,211 +141,186 @@ class _TeacherProfileScreenState extends State<TeacherProfileScreen> {
                 color: AppColors.primary))),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+      body: _loading
+        ? const Center(child: CircularProgressIndicator(
+            color: AppColors.primary))
+        : RefreshIndicator(
+            onRefresh: _loadAll,
+            color: AppColors.primary,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
 
-            // Banner perfil docente
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Color(0xFF185FA5), Color(0xFF0D3D6B)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight),
-                borderRadius: BorderRadius.circular(16)),
-              child: Column(children: [
-                Stack(alignment: Alignment.bottomRight, children: [
-                  CircleAvatar(
-                    radius: 44,
-                    backgroundColor: Colors.white.withValues(alpha: 0.2),
-                    child: Text(_avatarText,
-                      style: const TextStyle(fontSize: 28,
-                        fontWeight: FontWeight.w500,
-                        color: Colors.white))),
+                  // Banner perfil docente
                   Container(
-                    width: 28, height: 28,
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(
+                        colors: [Color(0xFF185FA5), Color(0xFF0D3D6B)],
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight),
+                      borderRadius: BorderRadius.circular(16)),
+                    child: Column(children: [
+                      CircleAvatar(
+                        radius: 44,
+                        backgroundColor: Colors.white.withValues(alpha: 0.2),
+                        child: Text(_avatarText,
+                          style: const TextStyle(fontSize: 28,
+                            fontWeight: FontWeight.w500,
+                            color: Colors.white))),
+                      const SizedBox(height: 12),
+                      Text(_displayName,
+                        style: const TextStyle(fontSize: 18,
+                          fontWeight: FontWeight.w500,
+                          color: Colors.white)),
+                      const SizedBox(height: 4),
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withValues(alpha: 0.2),
+                          borderRadius: BorderRadius.circular(20)),
+                        child: const Text('Docente',
+                          style: TextStyle(fontSize: 12,
+                            color: Colors.white))),
+                    ])),
+                  const SizedBox(height: 16),
+
+                  // Estadísticas (datos reales)
+                  const Text('Mis estadísticas',
+                    style: TextStyle(fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textPrimary)),
+                  const SizedBox(height: 10),
+                  Row(children: [
+                    _StatCard(number: '$_studentsCount',
+                      label: 'Estudiantes',
+                      icon: Icons.people_outline,
+                      color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    _StatCard(number: '$_tasksCreated',
+                      label: 'Tareas creadas',
+                      icon: Icons.assignment_outlined,
+                      color: const Color(0xFF534AB7)),
+                    const SizedBox(width: 8),
+                    _StatCard(number: '$_pendingToGrade',
+                      label: 'Por calificar',
+                      icon: Icons.grading_outlined,
+                      color: const Color(0xFFEF9F27)),
+                  ]),
+                  const SizedBox(height: 8),
+                  Row(children: [
+                    _StatCard(number: '$_liveClassesScheduled',
+                      label: 'Clases programadas',
+                      icon: Icons.videocam_outlined,
+                      color: AppColors.accent),
+                    const SizedBox(width: 8),
+                    _StatCard(
+                      number:
+                        '${(_avgStudentProgress * 100).toInt()}%',
+                      label: 'Progreso promedio',
+                      icon: Icons.trending_up_outlined,
+                      color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    _StatCard(
+                      number: _avgGrade == null
+                        ? '—'
+                        : _avgGrade!.toStringAsFixed(1),
+                      label: 'Nota promedio',
+                      icon: Icons.star_outline,
+                      color: const Color(0xFFEF9F27)),
+                  ]),
+                  const SizedBox(height: 16),
+
+                  // Información personal (solo datos reales)
+                  const Text('Información personal',
+                    style: TextStyle(fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textPrimary)),
+                  const SizedBox(height: 10),
+                  Container(
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: AppColors.accent, width: 2)),
-                    child: const Icon(Icons.camera_alt,
-                      size: 14, color: AppColors.accent)),
-                ]),
-                const SizedBox(height: 12),
-                Text(widget.userName,
-                  style: const TextStyle(fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.white)),
-                const SizedBox(height: 4),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.2),
-                    borderRadius: BorderRadius.circular(20)),
-                  child: const Text('Docente · Matemáticas',
-                    style: TextStyle(fontSize: 12,
-                      color: Colors.white))),
-                const SizedBox(height: 4),
-                const Text('Sede La Montañita',
-                  style: TextStyle(fontSize: 12,
-                    color: Colors.white70)),
-              ])),
-            const SizedBox(height: 16),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200)),
+                    child: Column(children: [
+                      _InfoRow(icon: Icons.person_outline,
+                        label: 'Nombre completo',
+                        value: _displayName),
+                      _InfoRow(icon: Icons.email_outlined,
+                        label: 'Correo',
+                        value: SupabaseService.currentUser?.email ?? '',
+                        isLast: true),
+                    ])),
+                  const SizedBox(height: 16),
 
-            // Estadísticas
-            const Text('Mis estadísticas',
-              style: TextStyle(fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary)),
-            const SizedBox(height: 10),
-            Row(children: [
-              _StatCard(number: '34', label: 'Estudiantes',
-                icon: Icons.people_outline,
-                color: AppColors.primary),
-              const SizedBox(width: 8),
-              _StatCard(number: '12', label: 'Videos subidos',
-                icon: Icons.video_library_outlined,
-                color: AppColors.accent),
-              const SizedBox(width: 8),
-              _StatCard(number: '87%', label: 'Asistencia',
-                icon: Icons.bar_chart_outlined,
-                color: const Color(0xFFEF9F27)),
-            ]),
-            const SizedBox(height: 8),
-            Row(children: [
-              _StatCard(number: '48', label: 'Clases dictadas',
-                icon: Icons.cast_for_education_outlined,
-                color: const Color(0xFF534AB7)),
-              const SizedBox(width: 8),
-              _StatCard(number: '142', label: 'Reproducciones',
-                icon: Icons.play_circle_outline,
-                color: AppColors.primary),
-              const SizedBox(width: 8),
-              _StatCard(number: '4.8', label: 'Calificación',
-                icon: Icons.star_outline,
-                color: const Color(0xFFEF9F27)),
-            ]),
-            const SizedBox(height: 16),
+                  // Configuración
+                  const Text('Configuración',
+                    style: TextStyle(fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                      color: AppColors.textPrimary)),
+                  const SizedBox(height: 10),
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.grey.shade200)),
+                    child: Column(children: [
+                      _SwitchRow(
+                        icon: Icons.notifications_outlined,
+                        label: 'Notificaciones',
+                        subtitle: 'Alertas de actividad estudiantil',
+                        value: _notificationsOn,
+                        onChanged: (v) async {
+                          setState(() => _notificationsOn = v);
+                          try {
+                            await SupabaseService
+                              .setNotificationsEnabled(v);
+                          } catch (e) {
+                            // ignore: avoid_print
+                            print('Error guardando preferencia: $e');
+                          }
+                        }),
+                      _ActionRow(
+                        icon: Icons.lock_outline,
+                        label: 'Cambiar contraseña',
+                        onTap: () => Navigator.push(context,
+                          MaterialPageRoute(builder: (_) =>
+                            const ChangePasswordScreen()))),
+                      _ActionRow(
+                        icon: Icons.help_outline,
+                        label: 'Ayuda y soporte',
+                        onTap: _showHelpDialog),
+                      _ActionRow(
+                        icon: Icons.logout,
+                        label: 'Cerrar sesión',
+                        isRed: true,
+                        isLast: true,
+                        onTap: () async {
+                          await SupabaseService.logout();
+                          if (context.mounted) {
+                            Navigator.pushAndRemoveUntil(context,
+                              MaterialPageRoute(
+                                builder: (_) => const LoginScreen()),
+                              (route) => false);
+                          }
+                        }),
+                    ])),
+                  const SizedBox(height: 24),
 
-            // Materias
-            const Text('Materias que dicto',
-              style: TextStyle(fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary)),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200)),
-              child: Column(children: [
-                _SubjectRow(icon: '🧮',
-                  name: 'Matemáticas',
-                  grades: 'Grados 6° y 7°',
-                  students: 34),
-                _SubjectRow(icon: '🌱',
-                  name: 'Cs. Naturales',
-                  grades: 'Grado 5°',
-                  students: 28,
-                  isLast: true),
-              ])),
-            const SizedBox(height: 16),
-
-            // Información personal
-            const Text('Información personal',
-              style: TextStyle(fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary)),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200)),
-              child: Column(children: [
-                _InfoRow(icon: Icons.person_outline,
-                  label: 'Nombre completo',
-                  value: widget.userName),
-                _InfoRow(icon: Icons.badge_outlined,
-                  label: 'Código docente',
-                  value: 'DOC-2020-0015'),
-                _InfoRow(icon: Icons.school_outlined,
-                  label: 'Sede',
-                  value: 'Sede La Montañita'),
-                _InfoRow(icon: Icons.email_outlined,
-                  label: 'Correo',
-                  value: SupabaseService.currentUser?.email ?? ''),
-                _InfoRow(icon: Icons.calendar_today_outlined,
-                  label: 'Vinculación',
-                  value: 'Desde 2020', isLast: true),
-              ])),
-            const SizedBox(height: 16),
-
-            // Configuración
-            const Text('Configuración',
-              style: TextStyle(fontSize: 14,
-                fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary)),
-            const SizedBox(height: 10),
-            Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey.shade200)),
-              child: Column(children: [
-                _SwitchRow(
-                  icon: Icons.notifications_outlined,
-                  label: 'Notificaciones',
-                  subtitle: 'Alertas de actividad estudiantil',
-                  value: _notificationsOn,
-                  onChanged: (v) =>
-                    setState(() => _notificationsOn = v)),
-                _SwitchRow(
-                  icon: Icons.live_tv_outlined,
-                  label: 'Alertas de clase en vivo',
-                  subtitle: 'Notificar antes de iniciar clase',
-                  value: _liveAlertsOn,
-                  onChanged: (v) =>
-                    setState(() => _liveAlertsOn = v)),
-                _ActionRow(
-                  icon: Icons.lock_outline,
-                  label: 'Cambiar contraseña',
-                  onTap: () {}),
-                _ActionRow(
-                  icon: Icons.help_outline,
-                  label: 'Ayuda y soporte',
-                  onTap: () {}),
-                _ActionRow(
-                  icon: Icons.logout,
-                  label: 'Cerrar sesión',
-                  isRed: true,
-                  isLast: true,
-                  onTap: () async {
-                    await SupabaseService.logout();
-                    if (context.mounted) {
-                      Navigator.pushAndRemoveUntil(context,
-                        MaterialPageRoute(
-                          builder: (_) => const LoginScreen()),
-                        (route) => false);
-                    }
-                  }),
-              ])),
-            const SizedBox(height: 24),
-
-            const Center(
-              child: Text('Aula Lid-IA v1.0.0',
-                style: TextStyle(fontSize: 11,
-                  color: AppColors.textSecondary))),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
+                  const Center(
+                    child: Text('Aula Lid-IA v1.0.0',
+                      style: TextStyle(fontSize: 11,
+                        color: AppColors.textSecondary))),
+                  const SizedBox(height: 8),
+                ],
+              ),
+            ),
+          ),
     );
   }
 }
@@ -283,51 +354,6 @@ class _StatCard extends StatelessWidget {
           textAlign: TextAlign.center),
       ]),
     ));
-  }
-}
-
-class _SubjectRow extends StatelessWidget {
-  final String icon;
-  final String name;
-  final String grades;
-  final int students;
-  final bool isLast;
-  const _SubjectRow({required this.icon, required this.name,
-    required this.grades, required this.students,
-    this.isLast = false});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        border: isLast ? null : Border(
-          bottom: BorderSide(color: Colors.grey.shade100))),
-      child: Row(children: [
-        Text(icon, style: const TextStyle(fontSize: 22)),
-        const SizedBox(width: 12),
-        Expanded(child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(name, style: const TextStyle(
-              fontSize: 13, fontWeight: FontWeight.w500,
-              color: AppColors.textPrimary)),
-            Text(grades, style: const TextStyle(
-              fontSize: 11, color: AppColors.textSecondary)),
-          ])),
-        Container(
-          padding: const EdgeInsets.symmetric(
-            horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFFE1F5EE),
-            borderRadius: BorderRadius.circular(8)),
-          child: Text('$students estudiantes',
-            style: const TextStyle(fontSize: 10,
-              color: AppColors.primaryDark,
-              fontWeight: FontWeight.w500))),
-      ]),
-    );
   }
 }
 
