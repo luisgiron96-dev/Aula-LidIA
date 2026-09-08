@@ -78,4 +78,25 @@ class LiveClassController {
       .delete()
       .eq('id', id);
   }
+
+  // Guarda (o actualiza) el enlace de la grabación de una clase ya
+  // finalizada, para que los estudiantes puedan verla después
+  // (solo el docente dueño de la clase, según RLS).
+  static Future<void> addRecording({
+    required String id,
+    required String recordingUrl,
+  }) async {
+    await SupabaseService.client
+      .from('live_classes')
+      .update({'recording_url': recordingUrl})
+      .eq('id', id);
+  }
+
+  // Quita el enlace de grabación de una clase.
+  static Future<void> removeRecording(String id) async {
+    await SupabaseService.client
+      .from('live_classes')
+      .update({'recording_url': null})
+      .eq('id', id);
+  }
 }

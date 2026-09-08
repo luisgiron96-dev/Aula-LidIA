@@ -10,6 +10,7 @@ class LiveClassModel {
   final String platform;
   final DateTime scheduledAt;
   final int durationMinutes;
+  final String? recordingUrl;
 
   const LiveClassModel({
     required this.id,
@@ -23,7 +24,11 @@ class LiveClassModel {
     required this.platform,
     required this.scheduledAt,
     required this.durationMinutes,
+    this.recordingUrl,
   });
+
+  bool get hasRecording =>
+    recordingUrl != null && recordingUrl!.trim().isNotEmpty;
 
   DateTime get endsAt =>
     scheduledAt.add(Duration(minutes: durationMinutes));
@@ -52,6 +57,7 @@ class LiveClassModel {
       scheduledAt:
         DateTime.parse(json['scheduled_at'] as String).toLocal(),
       durationMinutes: json['duration_minutes'] as int? ?? 60,
+      recordingUrl: json['recording_url'] as String?,
     );
   }
 }

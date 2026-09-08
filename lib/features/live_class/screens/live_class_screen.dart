@@ -52,13 +52,87 @@ class _LiveClassesScreenState extends State<LiveClassesScreen> {
     }
   }
 
-  Future<void> _joinClass(LiveClassModel c) async {
-    final uri = Uri.tryParse(c.meetingUrl);
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.tryParse(url);
     if (uri == null) return;
     final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
     if (!ok && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('No se pudo abrir el enlace de la clase.')));
+        content: Text('No se pudo abrir el enlace.')));
+    }
+  }
+
+  Future<void> _joinClass(LiveClassModel c) => _openUrl(c.meetingUrl);
+
+  Future<void> _watchRecording(LiveClassModel c) =>
+    _openUrl(c.recordingUrl!);
+
+  Future<void> _manageRecording(LiveClassModel c) async {
+    final ctrl = TextEditingController(text: c.recordingUrl ?? '');
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(c.hasRecording
+          ? 'Editar enlace de la grabación'
+          : 'Agregar grabación'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Pega el enlace del video de "${c.title}" '
+              '(YouTube, Google Drive, Zoom, etc.)',
+              style: const TextStyle(fontSize: 12,
+                color: AppColors.textSecondary)),
+            const SizedBox(height: 12),
+            TextField(
+              controller: ctrl,
+              autofocus: true,
+              keyboardType: TextInputType.url,
+              decoration: const InputDecoration(
+                hintText: 'https://...',
+                border: OutlineInputBorder())),
+          ]),
+        actions: [
+          if (c.hasRecording)
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, ''),
+              child: const Text('Quitar',
+                style: TextStyle(color: Colors.red))),
+          TextButton(onPressed: () => Navigator.pop(ctx, null),
+            child: const Text('Cancelar')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary),
+            child: const Text('Guardar',
+              style: TextStyle(color: Colors.white))),
+        ]));
+
+    if (result == null) return;
+    try {
+      if (result.isEmpty) {
+        await LiveClassController.removeRecording(c.id);
+      } else {
+        if (Uri.tryParse(result)?.hasScheme != true) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+            content: Text(
+              'El enlace debe empezar con https:// o http://.')));
+          return;
+        }
+        await LiveClassController.addRecording(
+          id: c.id, recordingUrl: result);
+      }
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(result.isEmpty
+          ? 'Grabación eliminada.'
+          : 'Grabación guardada. Ya la pueden ver los estudiantes.')));
+      _load();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No se pudo guardar la grabación.')));
     }
   }
 
@@ -180,7 +254,11 @@ class _LiveClassesScreenState extends State<LiveClassesScreen> {
             isPast: _tab == 1,
             canManage: _isTeacher && mine,
             onJoin: () => _joinClass(c),
-            onCancel: () => _cancelClass(c));
+            onCancel: () => _cancelClass(c),
+            onWatchRecording: c.hasRecording
+              ? () => _watchRecording(c) : null,
+            onManageRecording: (_isTeacher && mine)
+              ? () => _manageRecording(c) : null);
         }),
     );
   }
@@ -192,12 +270,16 @@ class _LiveClassCard extends StatelessWidget {
   final bool canManage;
   final VoidCallback onJoin;
   final VoidCallback onCancel;
+  final VoidCallback? onWatchRecording;
+  final VoidCallback? onManageRecording;
   const _LiveClassCard({
     required this.liveClass,
     required this.isPast,
     required this.canManage,
     required this.onJoin,
     required this.onCancel,
+    this.onWatchRecording,
+    this.onManageRecording,
   });
 
   String _formatDate(DateTime d) {
@@ -293,6 +375,49 @@ class _LiveClassCard extends StatelessWidget {
                 icon: const Icon(Icons.delete_outline,
                   color: Colors.red, size: 20),
                 onPressed: onCancel),
+            ],
+            if (isPast && onWatchRecording != null)
+              Expanded(child: ElevatedButton.icon(
+                onPressed: onWatchRecording,
+                icon: const Icon(Icons.play_circle_outline,
+                  size: 16, color: Colors.white),
+                label: const Text('Ver grabación',
+                  style: TextStyle(color: Colors.white,
+                    fontSize: 12)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)))))
+            else if (isPast && onManageRecording == null)
+              const Expanded(child: Text(
+                'Grabación aún no disponible',
+                style: TextStyle(fontSize: 11.5,
+                  fontStyle: FontStyle.italic,
+                  color: AppColors.textSecondary))),
+            if (isPast && onManageRecording != null) ...[
+              if (onWatchRecording != null) const SizedBox(width: 8),
+              if (onWatchRecording == null)
+                const Expanded(child: Text(
+                  'Sin grabación todavía',
+                  style: TextStyle(fontSize: 11.5,
+                    fontStyle: FontStyle.italic,
+                    color: AppColors.textSecondary))),
+              OutlinedButton.icon(
+                onPressed: onManageRecording,
+                icon: Icon(liveClass.hasRecording
+                  ? Icons.edit_outlined : Icons.add_link,
+                  size: 15, color: AppColors.primary),
+                label: Text(liveClass.hasRecording
+                  ? 'Editar' : 'Agregar grabación',
+                  style: const TextStyle(fontSize: 11.5,
+                    color: AppColors.primary)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.primary),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10, vertical: 8),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8)))),
             ],
           ]),
         ]),
