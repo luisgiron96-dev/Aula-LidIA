@@ -18,6 +18,7 @@ class UploadContentScreen extends StatefulWidget {
 class _UploadContentScreenState extends State<UploadContentScreen> {
   final _titleCtrl = TextEditingController();
   final _descCtrl  = TextEditingController();
+  final _linkUrlCtrl = TextEditingController();
   List<SubjectModel> _subjects = [];
   SubjectModel? _selectedSubject;
   PlatformFile? _selectedFile;
@@ -25,6 +26,10 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
   bool _isLoadingSubjects = true;
   double _uploadProgress = 0;
   String _statusMsg = '';
+
+  // 'archivo' = video/pdf/pptx subidos como archivo.
+  // 'enlace'  = hipervínculo externo (ej. un curso de Moodle).
+  String _contentMode = 'archivo';
 
   final List<Map<String, dynamic>> _uploadedContent = [];
 
@@ -87,6 +92,74 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
         return;
       }
       setState(() => _selectedFile = file);
+    }
+  }
+
+  bool _isValidUrl(String value) {
+    final uri = Uri.tryParse(value.trim());
+    return uri != null &&
+      (uri.scheme == 'http' || uri.scheme == 'https') &&
+      uri.host.isNotEmpty;
+  }
+
+  Future<void> _addLink() async {
+    if (_titleCtrl.text.trim().isEmpty) {
+      _showSnack('Escribe un título', isError: true);
+      return;
+    }
+    if (_selectedSubject == null) {
+      _showSnack('Selecciona una materia', isError: true);
+      return;
+    }
+    final url = _linkUrlCtrl.text.trim();
+    if (url.isEmpty) {
+      _showSnack('Pega el enlace (por ejemplo, de Moodle)',
+        isError: true);
+      return;
+    }
+    if (!_isValidUrl(url)) {
+      _showSnack(
+        'El enlace no es válido. Debe empezar con http:// o https://',
+        isError: true);
+      return;
+    }
+
+    setState(() {
+      _isUploading = true;
+      _statusMsg = 'Guardando enlace...';
+    });
+
+    try {
+      // A diferencia de un archivo, un enlace no se sube a Storage:
+      // solo se guarda la URL externa en la tabla lessons.
+      await SupabaseService.client.from('lessons').insert({
+        'subject_id': _selectedSubject!.id,
+        'title': _titleCtrl.text.trim(),
+        'descripcion': _descCtrl.text.trim(),
+        'tipo': 'enlace',
+        'video_url': url,
+        'storage_path': null,
+        'teacher_id': SupabaseService.currentUser!.id,
+        'duration_minutes': 0,
+        'sort_order': 0,
+      });
+
+      setState(() {
+        _isUploading = false;
+        _statusMsg = '¡Enlace agregado!';
+        _titleCtrl.clear();
+        _descCtrl.clear();
+        _linkUrlCtrl.clear();
+      });
+
+      _showSnack('✅ Enlace agregado exitosamente');
+      _loadContent();
+    } catch (e) {
+      setState(() {
+        _isUploading = false;
+        _statusMsg = 'Error: $e';
+      });
+      _showSnack('Error al guardar el enlace: $e', isError: true);
     }
   }
 
@@ -339,56 +412,109 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
                                 () => _selectedSubject = v)))),
                   const SizedBox(height: 16),
 
-                  // Zona de archivo
-                  GestureDetector(
-                    onTap: _isUploading ? null : _pickFile,
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.all(20),
-                      decoration: BoxDecoration(
-                        color: _selectedFile != null
-                          ? const Color(0xFFE1F5EE)
-                          : const Color(0xFFF5F5F5),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(
+                  // Selector: archivo vs enlace externo (ej. Moodle)
+                  const Text('Tipo de contenido',
+                    style: TextStyle(fontSize: 12,
+                      color: AppColors.textSecondary)),
+                  const SizedBox(height: 6),
+                  Row(children: [
+                    Expanded(child: _ModeBtn(
+                      label: 'Archivo',
+                      icon: Icons.upload_file_outlined,
+                      active: _contentMode == 'archivo',
+                      onTap: _isUploading ? null : () =>
+                        setState(() => _contentMode = 'archivo'))),
+                    const SizedBox(width: 8),
+                    Expanded(child: _ModeBtn(
+                      label: 'Enlace',
+                      icon: Icons.link,
+                      active: _contentMode == 'enlace',
+                      onTap: _isUploading ? null : () =>
+                        setState(() => _contentMode = 'enlace'))),
+                  ]),
+                  const SizedBox(height: 16),
+
+                  if (_contentMode == 'archivo') ...[
+                    // Zona de archivo
+                    GestureDetector(
+                      onTap: _isUploading ? null : _pickFile,
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
                           color: _selectedFile != null
-                            ? AppColors.primary
-                            : Colors.grey.shade300,
-                          style: BorderStyle.solid)),
-                      child: Column(children: [
-                        Icon(
-                          _selectedFile != null
-                            ? Icons.check_circle_outline
-                            : Icons.cloud_upload_outlined,
-                          size: 36,
-                          color: _selectedFile != null
-                            ? AppColors.primary
-                            : AppColors.textSecondary),
-                        const SizedBox(height: 8),
-                        Text(
-                          _selectedFile != null
-                            ? _selectedFile!.name
-                            : 'Toca para seleccionar archivo',
-                          style: TextStyle(
-                            fontSize: 13,
+                            ? const Color(0xFFE1F5EE)
+                            : const Color(0xFFF5F5F5),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
                             color: _selectedFile != null
                               ? AppColors.primary
-                              : AppColors.textSecondary,
-                            fontWeight: _selectedFile != null
-                              ? FontWeight.w500
-                              : FontWeight.normal)),
-                        if (_selectedFile != null)
+                              : Colors.grey.shade300,
+                            style: BorderStyle.solid)),
+                        child: Column(children: [
+                          Icon(
+                            _selectedFile != null
+                              ? Icons.check_circle_outline
+                              : Icons.cloud_upload_outlined,
+                            size: 36,
+                            color: _selectedFile != null
+                              ? AppColors.primary
+                              : AppColors.textSecondary),
+                          const SizedBox(height: 8),
                           Text(
-                            '${(_selectedFile!.size / 1024 / 1024).toStringAsFixed(1)} MB',
-                            style: const TextStyle(
-                              fontSize: 11,
-                              color: AppColors.textSecondary)),
-                        if (_selectedFile == null)
-                          const Text(
-                            'MP4 · AVI · MOV · PDF · PPTX (máx. 200 MB)',
-                            style: TextStyle(fontSize: 11,
-                              color: AppColors.textSecondary)),
-                      ]))),
+                            _selectedFile != null
+                              ? _selectedFile!.name
+                              : 'Toca para seleccionar archivo',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: _selectedFile != null
+                                ? AppColors.primary
+                                : AppColors.textSecondary,
+                              fontWeight: _selectedFile != null
+                                ? FontWeight.w500
+                                : FontWeight.normal)),
+                          if (_selectedFile != null)
+                            Text(
+                              '${(_selectedFile!.size / 1024 / 1024).toStringAsFixed(1)} MB',
+                              style: const TextStyle(
+                                fontSize: 11,
+                                color: AppColors.textSecondary)),
+                          if (_selectedFile == null)
+                            const Text(
+                              'MP4 · AVI · MOV · PDF · PPTX (máx. 200 MB)',
+                              style: TextStyle(fontSize: 11,
+                                color: AppColors.textSecondary)),
+                        ]))),
+                  ] else ...[
+                    // Zona de enlace externo (ej. Moodle)
+                    const Text('URL del enlace',
+                      style: TextStyle(fontSize: 12,
+                        color: AppColors.textSecondary)),
+                    const SizedBox(height: 6),
+                    TextField(
+                      controller: _linkUrlCtrl,
+                      keyboardType: TextInputType.url,
+                      decoration: InputDecoration(
+                        hintText:
+                          'Ej: https://tu-moodle.edu/course/tecnologia',
+                        hintStyle: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13),
+                        filled: true,
+                        fillColor: const Color(0xFFF5F5F5),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide.none),
+                        contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 10))),
+                    const SizedBox(height: 6),
+                    const Text(
+                      'Ideal para enlazar una plataforma como Moodle '
+                      'con contenido de tecnología o videojuegos '
+                      'educativos.',
+                      style: TextStyle(fontSize: 11,
+                        color: AppColors.textSecondary)),
+                  ],
                   const SizedBox(height: 16),
 
                   // Progreso
@@ -397,33 +523,45 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
                       style: const TextStyle(fontSize: 12,
                         color: AppColors.textSecondary)),
                     const SizedBox(height: 6),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(4),
-                      child: LinearProgressIndicator(
-                        value: _uploadProgress,
-                        minHeight: 6,
-                        backgroundColor: Colors.grey.shade200,
-                        valueColor: const AlwaysStoppedAnimation(
-                          AppColors.primary))),
+                    if (_contentMode == 'archivo')
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(4),
+                        child: LinearProgressIndicator(
+                          value: _uploadProgress,
+                          minHeight: 6,
+                          backgroundColor: Colors.grey.shade200,
+                          valueColor: const AlwaysStoppedAnimation(
+                            AppColors.primary))),
                     const SizedBox(height: 12),
                   ],
 
-                  // Botón subir
+                  // Botón subir / agregar
                   SizedBox(
                     width: double.infinity,
                     height: 44,
                     child: ElevatedButton.icon(
-                      onPressed: _isUploading ? null : _uploadFile,
+                      onPressed: _isUploading
+                        ? null
+                        : (_contentMode == 'archivo'
+                            ? _uploadFile
+                            : _addLink),
                       icon: _isUploading
                         ? const SizedBox(
                             width: 16, height: 16,
                             child: CircularProgressIndicator(
                               color: Colors.white,
                               strokeWidth: 2))
-                        : const Icon(Icons.upload, size: 18),
+                        : Icon(_contentMode == 'archivo'
+                            ? Icons.upload
+                            : Icons.link,
+                          size: 18),
                       label: Text(_isUploading
-                        ? 'Subiendo...'
-                        : 'Subir contenido'),
+                        ? (_contentMode == 'archivo'
+                            ? 'Subiendo...'
+                            : 'Guardando...')
+                        : (_contentMode == 'archivo'
+                            ? 'Subir contenido'
+                            : 'Agregar enlace')),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.primary,
                         foregroundColor: Colors.white))),
@@ -466,6 +604,40 @@ class _UploadContentScreenState extends State<UploadContentScreen> {
   }
 }
 
+class _ModeBtn extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool active;
+  final VoidCallback? onTap;
+  const _ModeBtn({required this.label, required this.icon,
+    required this.active, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: active
+            ? AppColors.primaryLight.withOpacity(0.3)
+            : const Color(0xFFF5F5F5),
+          border: Border.all(
+            color: active ? AppColors.primary : Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(8)),
+        child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(icon, size: 15,
+            color: active ? AppColors.primary : AppColors.textSecondary),
+          const SizedBox(width: 6),
+          Text(label, style: TextStyle(fontSize: 12,
+            color: active ? AppColors.primary : AppColors.textSecondary,
+            fontWeight: active ? FontWeight.w500 : FontWeight.normal)),
+        ]),
+      ),
+    );
+  }
+}
+
 class _ContentCard extends StatelessWidget {
   final Map<String, dynamic> content;
   final VoidCallback onDelete;
@@ -477,6 +649,7 @@ class _ContentCard extends StatelessWidget {
       case 'video': return Icons.play_circle_outline;
       case 'pdf': return Icons.picture_as_pdf_outlined;
       case 'pptx': return Icons.slideshow_outlined;
+      case 'enlace': return Icons.link;
       default: return Icons.insert_drive_file_outlined;
     }
   }
@@ -486,6 +659,7 @@ class _ContentCard extends StatelessWidget {
       case 'video': return AppColors.primary;
       case 'pdf': return Colors.red;
       case 'pptx': return Colors.orange;
+      case 'enlace': return Colors.blueGrey;
       default: return AppColors.accent;
     }
   }

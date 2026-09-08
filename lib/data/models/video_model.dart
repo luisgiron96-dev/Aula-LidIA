@@ -3,7 +3,7 @@ class VideoModel {
   final String subjectId;
   final String title;
   final String? descripcion;
-  final String tipo; // 'video' | 'pdf' | 'pptx' | 'otro'
+  final String tipo; // 'video' | 'pdf' | 'pptx' | 'enlace' | 'otro'
   final String? videoUrl; // url genérico del archivo (video, pdf o pptx)
   final String? storagePath;
   final String? teacherId;

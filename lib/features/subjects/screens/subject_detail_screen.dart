@@ -129,8 +129,8 @@ class _SubjectDetailScreenState extends State<SubjectDetailScreen> {
               onProgressChanged: (p) => setState(() => _progress = p)),
             if (_tabIndex == 1) const _ComingSoonTab(
               text: 'Las actividades y talleres estarán disponibles pronto.'),
-            if (_tabIndex == 2) const _ComingSoonTab(
-              text: 'Los recursos descargables estarán disponibles pronto.'),
+            if (_tabIndex == 2) _ResourcesTab(
+              subjectId: widget.subjectId),
           ],
         ),
       ),
@@ -166,7 +166,9 @@ class _VideosTabState extends State<_VideosTab> {
       final videos = await SubjectController.fetchLessons(widget.subjectId);
       if (!mounted) return;
       setState(() {
-        _videos = videos;
+        // Los enlaces (ej. Moodle) se muestran en la pestaña "Recursos",
+        // no aquí junto con videos/pdf/pptx.
+        _videos = videos.where((v) => v.tipo != 'enlace').toList();
         _loading = false;
       });
       _reportProgress();
@@ -280,6 +282,178 @@ class _VideosTabState extends State<_VideosTab> {
           onDownload: () => _downloadContent(v),
         )),
       ],
+    );
+  }
+}
+
+// ── PESTAÑA RECURSOS (enlaces, ej. Moodle) ────────────
+class _ResourcesTab extends StatefulWidget {
+  final String subjectId;
+  const _ResourcesTab({required this.subjectId});
+
+  @override
+  State<_ResourcesTab> createState() => _ResourcesTabState();
+}
+
+class _ResourcesTabState extends State<_ResourcesTab> {
+  List<VideoModel> _links = [];
+  bool _loading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLinks();
+  }
+
+  Future<void> _loadLinks() async {
+    setState(() { _loading = true; _error = null; });
+    try {
+      final lessons =
+        await SubjectController.fetchLessons(widget.subjectId);
+      if (!mounted) return;
+      setState(() {
+        _links = lessons.where((v) => v.tipo == 'enlace').toList();
+        _loading = false;
+      });
+    } catch (e) {
+      // ignore: avoid_print
+      print('Error cargando recursos: $e');
+      if (!mounted) return;
+      setState(() {
+        _error = 'No se pudieron cargar los recursos.';
+        _loading = false;
+      });
+    }
+  }
+
+  Future<void> _openLink(VideoModel link) async {
+    final url = link.videoUrl;
+    if (url == null || url.isEmpty) return;
+    final ok = await launchUrl(Uri.parse(url),
+      mode: LaunchMode.externalApplication);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('No se pudo abrir el enlace')));
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: CircularProgressIndicator(
+          color: AppColors.primary)));
+    }
+    if (_error != null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Column(children: [
+          Text(_error!,
+            style: const TextStyle(color: AppColors.textSecondary)),
+          const SizedBox(height: 8),
+          TextButton(onPressed: _loadLinks,
+            child: const Text('Reintentar')),
+        ])),
+      );
+    }
+    if (_links.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(vertical: 24),
+        child: Center(child: Column(children: [
+          Icon(Icons.link_off,
+            size: 32, color: AppColors.textSecondary),
+          SizedBox(height: 8),
+          Text(
+            'Todavía no hay enlaces para esta materia\n'
+            '(por ejemplo, un curso de Moodle).',
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 12,
+              color: AppColors.textSecondary)),
+        ])),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text('${_links.length} enlace(s) disponible(s)',
+          style: const TextStyle(fontSize: 12,
+            color: AppColors.textSecondary)),
+        const SizedBox(height: 10),
+        ..._links.map((link) => _LinkCard(
+          link: link,
+          onTap: () => _openLink(link))),
+      ],
+    );
+  }
+}
+
+class _LinkCard extends StatelessWidget {
+  final VideoModel link;
+  final VoidCallback onTap;
+  const _LinkCard({required this.link, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: Colors.grey.shade200)),
+      child: Row(children: [
+        Container(
+          width: 90, height: 68,
+          decoration: const BoxDecoration(
+            color: Colors.blueGrey,
+            borderRadius: BorderRadius.only(
+              topLeft: Radius.circular(10),
+              bottomLeft: Radius.circular(10))),
+          child: const Icon(Icons.link,
+            color: Colors.white, size: 26)),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.all(10),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(link.title,
+                  style: const TextStyle(fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textPrimary)),
+                if (link.descripcion != null &&
+                    link.descripcion!.isNotEmpty) ...[
+                  const SizedBox(height: 3),
+                  Text(link.descripcion!,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 10,
+                      color: AppColors.textSecondary)),
+                ],
+              ])),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(6)),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.open_in_new, size: 12, color: Colors.white),
+                SizedBox(width: 4),
+                Text('Abrir',
+                  style: TextStyle(fontSize: 11,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500)),
+              ]))),
+        ),
+      ]),
     );
   }
 }
