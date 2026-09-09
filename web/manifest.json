@@ -1,11 +1,11 @@
 {
-    "name": "aula_lidia",
-    "short_name": "aula_lidia",
+    "name": "Aula Lid-IA",
+    "short_name": "Aula Lid-IA",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",
     "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "description": "Plataforma educativa híbrida Aula Lid-IA para comunidades rurales.",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [

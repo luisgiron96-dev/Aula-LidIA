@@ -1,10 +1,9 @@
 import 'dart:convert';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../../../core/constants/api_config.dart';
 import '../../../core/constants/app_colors.dart';
-
-const String _groqApiKey = 'API KEY';
-const String _groqUrl = 'https://api.groq.com/openai/v1/chat/completions';
 
 class ChatIAScreen extends StatefulWidget {
   final VoidCallback? onBack;
@@ -81,12 +80,65 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
 
     _scrollToBottom();
 
+    // En la web no podemos llamar a Groq directo (el navegador lo
+    // bloquea por CORS), así que pasamos por la función de Netlify.
+    // En móvil/escritorio sí podemos llamar a Groq directo.
+    if (kIsWeb) {
+      await _sendViaNetlifyProxy();
+    } else {
+      await _sendDirectToGroq();
+    }
+
+    _scrollToBottom();
+  }
+
+  Future<void> _sendViaNetlifyProxy() async {
     try {
       final response = await http.post(
-        Uri.parse(_groqUrl),
+        Uri.parse(ApiConfig.lidiaChatUrl),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'messages': _groqHistory}),
+      ).timeout(const Duration(seconds: 30));
+
+      print('STATUS: ${response.statusCode}');
+      print('BODY: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        final reply = data['choices'][0]['message']['content'] as String;
+        _groqHistory.add({'role': 'assistant', 'content': reply});
+        setState(() {
+          _isTyping = false;
+          _messages.add({
+            'role': 'lidia', 'text': reply, 'time': _currentTime()});
+        });
+      } else {
+        setState(() => _errorDetail = 'Status: ${response.statusCode} '
+          '— ${response.body}');
+        _showError();
+      }
+    } catch (e) {
+      print('ERROR LidIA (proxy): $e');
+      setState(() => _errorDetail = e.toString());
+      _showError();
+    }
+  }
+
+  Future<void> _sendDirectToGroq() async {
+    if (ApiConfig.groqApiKey.isEmpty) {
+      setState(() => _errorDetail =
+        'Falta la clave de Groq. Compila con:\n'
+        'flutter build ... --dart-define=GROQ_API_KEY=tu_key');
+      _showError();
+      return;
+    }
+
+    try {
+      final response = await http.post(
+        Uri.parse(ApiConfig.groqChatUrl),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $_groqApiKey',
+          'Authorization': 'Bearer ${ApiConfig.groqApiKey}',
         },
         body: jsonEncode({
           'model': 'llama-3.3-70b-versatile',
@@ -102,28 +154,21 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
         final reply = data['choices'][0]['message']['content'] as String;
-
         _groqHistory.add({'role': 'assistant', 'content': reply});
-
         setState(() {
           _isTyping = false;
           _messages.add({
-            'role': 'lidia',
-            'text': reply,
-            'time': _currentTime(),
-          });
+            'role': 'lidia', 'text': reply, 'time': _currentTime()});
         });
       } else {
         setState(() => _errorDetail = 'Status: ${response.statusCode}');
         _showError();
       }
     } catch (e) {
-      print('ERROR LidIA: $e');
+      print('ERROR LidIA (directo): $e');
       setState(() => _errorDetail = e.toString());
       _showError();
     }
-
-    _scrollToBottom();
   }
 
   void _showError() {
