@@ -57,6 +57,14 @@ class SupabaseService {
       UserAttributes(password: newPassword));
   }
 
+  // Cambiar correo estando ya con sesión iniciada.
+  // Supabase envía un correo de confirmación a la nueva dirección;
+  // el cambio se hace efectivo cuando el usuario confirma ese enlace.
+  static Future<void> updateEmail(String newEmail) async {
+    await client.auth.updateUser(
+      UserAttributes(email: newEmail));
+  }
+
   // Usuario actual
   static User? get currentUser => client.auth.currentUser;
 

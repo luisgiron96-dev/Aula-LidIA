@@ -13,6 +13,7 @@ import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/chat_ia/screens/chat_ia_screen.dart';
 import '../../features/live_class/screens/live_class_screen.dart';
 import '../../features/auth/screens/login_screen.dart';
+import '../../features/settings/screens/settings_screen.dart';
 
 const double kMobileBreakpoint = 700;
 
@@ -61,6 +62,8 @@ class _MainLayoutState extends State<MainLayout> {
           iconActive: Icons.notifications, label: 'Notificaciones'),
         _NavItem(icon: Icons.person_outline,
           iconActive: Icons.person, label: 'Mi perfil'),
+        _NavItem(icon: Icons.settings_outlined,
+          iconActive: Icons.settings, label: 'Configuración'),
       ];
     } else {
       return [
@@ -80,6 +83,8 @@ class _MainLayoutState extends State<MainLayout> {
           iconActive: Icons.notifications, label: 'Notificaciones'),
         _NavItem(icon: Icons.person_outline,
           iconActive: Icons.person, label: 'Mi perfil'),
+        _NavItem(icon: Icons.settings_outlined,
+          iconActive: Icons.settings, label: 'Configuración'),
       ];
     }
   }
@@ -88,10 +93,13 @@ class _MainLayoutState extends State<MainLayout> {
     _items.indexWhere((i) => i.label == 'Notificaciones');
   int get _profileIndex =>
     _items.indexWhere((i) => i.label == 'Mi perfil');
+  int get _settingsIndex =>
+    _items.indexWhere((i) => i.label == 'Configuración');
 
   List<int> get _mobileNavIndices =>
     List.generate(_items.length, (i) => i)
-      .where((i) => i != _notificationsIndex && i != _profileIndex)
+      .where((i) => i != _notificationsIndex
+        && i != _profileIndex && i != _settingsIndex)
       .toList();
 
   String get _avatarText {
@@ -114,6 +122,7 @@ class _MainLayoutState extends State<MainLayout> {
         case 3: return const ChatIAScreen(role: 'student');
         case 4: return const NotificationsScreen();
         case 5: return StudentProfileScreen(userName: _userName);
+        case 6: return const SettingsScreen();
         default: return _PlaceholderScreen(
           label: _items[_selectedIndex].label);
       }
@@ -127,6 +136,7 @@ class _MainLayoutState extends State<MainLayout> {
         case 5: return const ChatIAScreen(role: 'teacher');
         case 6: return const NotificationsScreen();
         case 7: return TeacherProfileScreen(userName: _userName);
+        case 8: return const SettingsScreen();
         default: return _PlaceholderScreen(
           label: _items[_selectedIndex].label);
       }
@@ -203,6 +213,14 @@ class _MainLayoutState extends State<MainLayout> {
                   style: TextStyle(fontSize: 11,
                     fontWeight: FontWeight.w500,
                     color: avatarTextColor))))),
+          IconButton(
+            icon: Icon(
+              _selectedIndex == _settingsIndex
+                ? Icons.settings
+                : Icons.settings_outlined,
+              color: AppColors.textSecondary, size: 20),
+            onPressed: () => setState(() =>
+              _selectedIndex = _settingsIndex)),
           IconButton(
             icon: const Icon(Icons.logout,
               color: AppColors.error, size: 20),
