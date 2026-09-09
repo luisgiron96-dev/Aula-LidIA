@@ -80,4 +80,53 @@ class SubjectController {
       'viewed_at': DateTime.now().toIso8601String(),
     }, onConflict: 'student_id,lesson_id');
   }
+
+  // IDs de materias que ya tienen al menos un contenido (lección) subido
+  static Future<Set<String>> fetchSubjectIdsWithContent() async {
+    final data = await SupabaseService.client
+      .from('lessons')
+      .select('subject_id');
+    return (data as List)
+      .map((row) => row['subject_id'] as String)
+      .toSet();
+  }
+
+  // Crea una nueva materia
+  static Future<void> createSubject({
+    required String name,
+    required String icon,
+    required int periodo,
+  }) async {
+    final subjects = await fetchSubjects();
+    final nextSortOrder = subjects.isEmpty
+      ? 0
+      : subjects.map((s) => s.sortOrder).reduce((a, b) => a > b ? a : b) + 1;
+
+    await SupabaseService.client.from('subjects').insert({
+      'name': name,
+      'icon': icon,
+      'periodo': periodo,
+      'sort_order': nextSortOrder,
+    });
+  }
+
+  // Cambia el período académico de una materia existente
+  static Future<void> updateSubjectPeriodo(
+    String subjectId, int periodo,
+  ) async {
+    await SupabaseService.client
+      .from('subjects')
+      .update({'periodo': periodo})
+      .eq('id', subjectId);
+  }
+
+  // Elimina una materia. Si tiene contenido asociado (lecciones), Supabase
+  // puede rechazar el borrado por la relación entre tablas; en ese caso
+  // se propaga el error para que la pantalla lo muestre al docente.
+  static Future<void> deleteSubject(String subjectId) async {
+    await SupabaseService.client
+      .from('subjects')
+      .delete()
+      .eq('id', subjectId);
+  }
 }

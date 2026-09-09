@@ -7,6 +7,7 @@ import '../../features/subjects/screens/subjects_list_screen.dart';
 import '../../features/teacher/screens/teacher_home_screen.dart';
 import '../../features/teacher/screens/teacher_profile_screen.dart';
 import '../../features/teacher/screens/students_list_screen.dart';
+import '../../features/teacher/screens/subjects_screen.dart';
 import '../../features/teacher/screens/upload_content_screen.dart';
 import '../../features/notifications/screens/notifications_screen.dart';
 import '../../features/chat_ia/screens/chat_ia_screen.dart';
@@ -71,6 +72,8 @@ class _MainLayoutState extends State<MainLayout> {
           iconActive: Icons.videocam, label: 'Clase en vivo'),
         _NavItem(icon: Icons.people_outline,
           iconActive: Icons.people, label: 'Estudiantes'),
+        _NavItem(icon: Icons.menu_book_outlined,
+          iconActive: Icons.menu_book, label: 'Asignaturas'),
         _NavItem(icon: Icons.smart_toy_outlined,
           iconActive: Icons.smart_toy, label: 'LidIA IA'),
         _NavItem(icon: Icons.notifications_outlined,
@@ -120,9 +123,10 @@ class _MainLayoutState extends State<MainLayout> {
         case 1: return const UploadContentScreen();
         case 2: return const LiveClassesScreen(role: 'teacher');
         case 3: return const StudentsListScreen();
-        case 4: return const ChatIAScreen();
-        case 5: return const NotificationsScreen();
-        case 6: return TeacherProfileScreen(userName: _userName);
+        case 4: return const TeacherSubjectsScreen();
+        case 5: return const ChatIAScreen();
+        case 6: return const NotificationsScreen();
+        case 7: return TeacherProfileScreen(userName: _userName);
         default: return _PlaceholderScreen(
           label: _items[_selectedIndex].label);
       }
