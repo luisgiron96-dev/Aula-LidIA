@@ -141,7 +141,7 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           'Authorization': 'Bearer ${ApiConfig.groqApiKey}',
         },
         body: jsonEncode({
-          'model': 'llama-3.3-70b-versatile',
+          'model': 'openai/gpt-oss-120b',
           'messages': _groqHistory,
           'max_tokens': 1024,
           'temperature': 0.7,
