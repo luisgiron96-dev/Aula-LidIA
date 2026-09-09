@@ -2,12 +2,15 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:pdf/widgets.dart' as pw;
+import 'package:printing/printing.dart';
 import '../../../core/constants/api_config.dart';
 import '../../../core/constants/app_colors.dart';
 
 class ChatIAScreen extends StatefulWidget {
+  final String role; // 'student' o 'teacher'
   final VoidCallback? onBack;
-  const ChatIAScreen({super.key, this.onBack});
+  const ChatIAScreen({super.key, required this.role, this.onBack});
   @override
   State<ChatIAScreen> createState() => _ChatIAScreenState();
 }
@@ -18,49 +21,86 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
   bool _isTyping    = false;
   String _errorDetail = '';
 
-  final List<Map<String, String>> _messages = [
+  bool get _isTeacher => widget.role == 'teacher';
+
+  late final List<Map<String, String>> _messages = [
     {
       'role': 'lidia',
-      'text': '¡Hola! Soy LidIA, tu tutora virtual 👋\n\n'
-        'Estoy aquí para ayudarte a entender cualquier tema de tus materias. '
-        'Te explico paso a paso para que tú mismo puedas resolver tus actividades.\n\n'
-        '¿Qué tema quieres aprender hoy?',
+      'text': _isTeacher
+        ? '¡Hola! Soy LidIA, tu asistente de planeación 👋\n\n'
+          'Cuéntame qué tema quieres dictar y te ayudo a armar el temario '
+          'de la clase: subtemas, objetivos de aprendizaje y actividades '
+          'sugeridas. Al final puedes descargar el temario en PDF.\n\n'
+          '¿Qué tema vas a dictar?'
+        : '¡Hola! Soy LidIA, tu tutora virtual 👋\n\n'
+          'Estoy aquí para ayudarte a entender cualquier tema de tus materias. '
+          'Te explico paso a paso para que tú mismo puedas resolver tus actividades.\n\n'
+          '¿Qué tema quieres aprender hoy?',
       'time': '9:00 am',
     },
   ];
 
-  final List<Map<String, String>> _groqHistory = [
+  static const _studentSystemPrompt =
+    'Eres LidIA, una tutora virtual educativa para estudiantes rurales '
+    'de Colombia de la plataforma Aula Lid-IA. '
+    'Tu rol es ser TUTORA, no resolver tareas ni actividades directamente. '
+    'REGLAS IMPORTANTES que SIEMPRE debes seguir:\n'
+    '1. NUNCA des la respuesta directa a una tarea, ejercicio o actividad.\n'
+    '2. Si un estudiante te pide que resuelva su tarea, explícale el concepto '
+    'y guíalo para que él mismo lo resuelva.\n'
+    '3. Usa ejemplos DIFERENTES a los de la tarea del estudiante.\n'
+    '4. Explica paso a paso de forma clara y sencilla.\n'
+    '5. Motiva al estudiante a pensar por sí mismo.\n'
+    '6. Si el estudiante insiste en que le des la respuesta, '
+    'recuérdale amablemente que tu rol es enseñarle, no hacer su tarea.\n'
+    '7. Responde siempre en español colombiano, cálido y motivador.\n'
+    '8. Usa emojis con moderación para hacer las respuestas más amigables.\n'
+    '9. Cuando expliques un concepto, al final pregunta si entendió '
+    'o si quiere que expliques algo de otra forma.\n'
+    'Materias que cubres: Español, Inglés, Matemáticas, '
+    'Ciencias Sociales, Ciencias Naturales, Cátedra de Paz, '
+    'Religión, Informática y TelePsicología.';
+
+  static const _teacherSystemPrompt =
+    'Eres LidIA, una asistente de planeación pedagógica para docentes '
+    'rurales de Colombia de la plataforma Aula Lid-IA. '
+    'Tu rol es ayudar al docente a preparar el temario de una clase nueva. '
+    'REGLAS IMPORTANTES que SIEMPRE debes seguir:\n'
+    '1. Cuando el docente te diga un tema, genera un temario estructurado '
+    'con TRES secciones claras: "Subtemas" (lista de puntos a cubrir), '
+    '"Objetivos de aprendizaje" (qué debe lograr el estudiante al terminar), '
+    'y "Actividades sugeridas" (ejercicios o dinámicas para la clase).\n'
+    '2. Usa encabezados markdown (##) para cada sección y viñetas (-) '
+    'para los puntos, de forma clara y organizada.\n'
+    '3. Adapta el nivel al grado/edad que el docente mencione; si no lo '
+    'menciona, pregúntale antes de generar el temario.\n'
+    '4. Si el docente pide ajustes (más corto, más avanzado, otro enfoque), '
+    'genera una versión nueva del temario completo.\n'
+    '5. Responde siempre en español colombiano, profesional y claro.\n'
+    'Materias que cubres: Español, Inglés, Matemáticas, '
+    'Ciencias Sociales, Ciencias Naturales, Cátedra de Paz, '
+    'Religión, Informática y TelePsicología.';
+
+  late final List<Map<String, String>> _groqHistory = [
     {
       'role': 'system',
-      'content':
-        'Eres LidIA, una tutora virtual educativa para estudiantes rurales '
-        'de Colombia de la plataforma Aula Lid-IA. '
-        'Tu rol es ser TUTORA, no resolver tareas ni actividades directamente. '
-        'REGLAS IMPORTANTES que SIEMPRE debes seguir:\n'
-        '1. NUNCA des la respuesta directa a una tarea, ejercicio o actividad.\n'
-        '2. Si un estudiante te pide que resuelva su tarea, explícale el concepto '
-        'y guíalo para que él mismo lo resuelva.\n'
-        '3. Usa ejemplos DIFERENTES a los de la tarea del estudiante.\n'
-        '4. Explica paso a paso de forma clara y sencilla.\n'
-        '5. Motiva al estudiante a pensar por sí mismo.\n'
-        '6. Si el estudiante insiste en que le des la respuesta, '
-        'recuérdale amablemente que tu rol es enseñarle, no hacer su tarea.\n'
-        '7. Responde siempre en español colombiano, cálido y motivador.\n'
-        '8. Usa emojis con moderación para hacer las respuestas más amigables.\n'
-        '9. Cuando expliques un concepto, al final pregunta si entendió '
-        'o si quiere que expliques algo de otra forma.\n'
-        'Materias que cubres: Español, Inglés, Matemáticas, '
-        'Ciencias Sociales, Ciencias Naturales, Cátedra de Paz, '
-        'Religión, Informática y TelePsicología.',
+      'content': _isTeacher ? _teacherSystemPrompt : _studentSystemPrompt,
     }
   ];
 
-  final List<String> _suggestions = [
-    '¿Cómo se suman fracciones?',
-    'Explícame el ciclo del agua',
-    '¿Qué es un sujeto y predicado?',
-    '¿Cómo se forma el pasado en inglés?',
-  ];
+  late final List<String> _suggestions = _isTeacher
+    ? [
+        'Arma el temario de fracciones para 5°',
+        'Temario de ciclo del agua para 4°',
+        'Plan de clase sobre el sujeto y el predicado',
+        'Temario de pasado simple en inglés',
+      ]
+    : [
+        '¿Cómo se suman fracciones?',
+        'Explícame el ciclo del agua',
+        '¿Qué es un sujeto y predicado?',
+        '¿Cómo se forma el pasado en inglés?',
+      ];
 
   Future<void> _sendMessage(String text) async {
     if (text.trim().isEmpty) return;
@@ -81,10 +121,10 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
     _scrollToBottom();
 
     // En la web no podemos llamar a Groq directo (el navegador lo
-    // bloquea por CORS), así que pasamos por la función de Netlify.
+    // bloquea por CORS), así que pasamos por la función de Vercel.
     // En móvil/escritorio sí podemos llamar a Groq directo.
     if (kIsWeb) {
-      await _sendViaNetlifyProxy();
+      await _sendViaVercelProxy();
     } else {
       await _sendDirectToGroq();
     }
@@ -92,7 +132,7 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
     _scrollToBottom();
   }
 
-  Future<void> _sendViaNetlifyProxy() async {
+  Future<void> _sendViaVercelProxy() async {
     try {
       final response = await http.post(
         Uri.parse(ApiConfig.lidiaChatUrl),
@@ -202,6 +242,23 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
     });
   }
 
+  Future<void> _downloadPdf(String content) async {
+    final doc = pw.Document();
+    doc.addPage(
+      pw.MultiPage(
+        build: (context) => [
+          pw.Header(level: 0,
+            child: pw.Text('Temario de clase — Aula Lid-IA')),
+          pw.SizedBox(height: 12),
+          pw.Paragraph(text: content, style: const pw.TextStyle(
+            fontSize: 12, lineSpacing: 3)),
+        ],
+      ),
+    );
+    final bytes = await doc.save();
+    await Printing.sharePdf(bytes: bytes, filename: 'temario-clase.pdf');
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -209,10 +266,12 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back,
-            color: AppColors.textPrimary),
-          onPressed: widget.onBack ?? () => Navigator.pop(context)),
+        leading: widget.onBack != null
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back,
+                color: AppColors.textPrimary),
+              onPressed: widget.onBack)
+          : null,
         title: Row(children: [
           Container(
             width: 36, height: 36,
@@ -224,13 +283,15 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
               color: Colors.white, size: 20)),
           const SizedBox(width: 10),
           Column(crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              Text('LidIA — Tutora Virtual',
+            children: [
+              const Text('LidIA — Tutora Virtual',
                 style: TextStyle(fontSize: 15,
                   fontWeight: FontWeight.w500,
                   color: AppColors.textPrimary)),
-              Text('Te enseño, tú aprendes 🌱',
-                style: TextStyle(fontSize: 10,
+              Text(_isTeacher
+                  ? 'Te ayudo a planear tu clase 📋'
+                  : 'Te enseño, tú aprendes 🌱',
+                style: const TextStyle(fontSize: 10,
                   color: AppColors.primary)),
             ]),
         ]),
@@ -243,7 +304,9 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
               _groqHistory.removeWhere((m) => m['role'] != 'system');
               _messages.add({
                 'role': 'lidia',
-                'text': '¡Hola de nuevo! ¿Qué tema quieres aprender hoy? 😊',
+                'text': _isTeacher
+                  ? '¡Listo! ¿Qué tema quieres dictar ahora? 📋'
+                  : '¡Hola de nuevo! ¿Qué tema quieres aprender hoy? 😊',
                 'time': _currentTime(),
               });
             })),
@@ -257,14 +320,16 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
           padding: const EdgeInsets.symmetric(
             horizontal: 16, vertical: 8),
           color: const Color(0xFFE1F5EE),
-          child: Row(children: const [
-            Icon(Icons.info_outline,
+          child: Row(children: [
+            const Icon(Icons.info_outline,
               size: 14, color: AppColors.primaryDark),
-            SizedBox(width: 6),
+            const SizedBox(width: 6),
             Expanded(
               child: Text(
-                'LidIA te explica los temas para que tú mismo resuelvas tus actividades',
-                style: TextStyle(fontSize: 11,
+                _isTeacher
+                  ? 'LidIA arma el temario de tu clase — puedes descargarlo en PDF'
+                  : 'LidIA te explica los temas para que tú mismo resuelvas tus actividades',
+                style: const TextStyle(fontSize: 11,
                   color: AppColors.primaryDark))),
           ])),
 
@@ -280,13 +345,16 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
               }
               final m = _messages[i];
               final isLidia = m['role'] == 'lidia';
+              // La primera bienvenida no se puede descargar como temario
+              final canDownload = _isTeacher && isLidia && i != 0;
 
               if (i == 0 && _messages.length == 1) {
                 return Column(children: [
                   _MessageBubble(
                     text: m['text']!,
                     isLidia: true,
-                    time: m['time']!),
+                    time: m['time']!,
+                    isTeacher: _isTeacher),
                   const SizedBox(height: 12),
                   _SuggestionChips(
                     suggestions: _suggestions,
@@ -297,7 +365,11 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
               return _MessageBubble(
                 text: m['text']!,
                 isLidia: isLidia,
-                time: m['time']!);
+                time: m['time']!,
+                isTeacher: _isTeacher,
+                onDownloadPdf: canDownload
+                  ? () => _downloadPdf(m['text']!)
+                  : null);
             }),
         ),
 
@@ -315,7 +387,9 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
                 maxLines: null,
                 onSubmitted: _sendMessage,
                 decoration: InputDecoration(
-                  hintText: '¿Qué tema quieres aprender?',
+                  hintText: _isTeacher
+                    ? '¿Qué tema vas a dictar?'
+                    : '¿Qué tema quieres aprender?',
                   hintStyle: const TextStyle(
                     fontSize: 13,
                     color: AppColors.textSecondary),
@@ -349,8 +423,11 @@ class _MessageBubble extends StatelessWidget {
   final String text;
   final bool isLidia;
   final String time;
+  final bool isTeacher;
+  final VoidCallback? onDownloadPdf;
   const _MessageBubble({required this.text,
-    required this.isLidia, required this.time});
+    required this.isLidia, required this.time,
+    this.isTeacher = false, this.onDownloadPdf});
 
   @override
   Widget build(BuildContext context) {
@@ -404,17 +481,36 @@ class _MessageBubble extends StatelessWidget {
                         : Colors.white,
                       height: 1.4))),
                 const SizedBox(height: 4),
-                Text(time,
-                  style: const TextStyle(fontSize: 10,
-                    color: AppColors.textSecondary)),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  Text(time,
+                    style: const TextStyle(fontSize: 10,
+                      color: AppColors.textSecondary)),
+                  if (onDownloadPdf != null) ...[
+                    const SizedBox(width: 10),
+                    GestureDetector(
+                      onTap: onDownloadPdf,
+                      child: Row(mainAxisSize: MainAxisSize.min,
+                        children: const [
+                          Icon(Icons.picture_as_pdf_outlined,
+                            size: 13, color: AppColors.primary),
+                          SizedBox(width: 3),
+                          Text('Descargar PDF',
+                            style: TextStyle(fontSize: 10,
+                              fontWeight: FontWeight.w500,
+                              color: AppColors.primary)),
+                        ])),
+                  ],
+                ]),
               ])),
           if (!isLidia) ...[
             const SizedBox(width: 8),
-            const CircleAvatar(
+            CircleAvatar(
               radius: 14,
-              backgroundColor: AppColors.studentColor,
-              child: Text('VA',
-                style: TextStyle(fontSize: 9,
+              backgroundColor: isTeacher
+                ? AppColors.teacherColor
+                : AppColors.studentColor,
+              child: Text(isTeacher ? 'MP' : 'VA',
+                style: const TextStyle(fontSize: 9,
                   fontWeight: FontWeight.w500,
                   color: AppColors.primaryDark))),
           ],

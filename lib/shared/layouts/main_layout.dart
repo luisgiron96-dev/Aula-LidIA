@@ -111,7 +111,7 @@ class _MainLayoutState extends State<MainLayout> {
         case 0: return StudentHomeScreen(userName: _userName);
         case 1: return const SubjectsListScreen();
         case 2: return const LiveClassesScreen(role: 'student');
-        case 3: return const ChatIAScreen();
+        case 3: return const ChatIAScreen(role: 'student');
         case 4: return const NotificationsScreen();
         case 5: return StudentProfileScreen(userName: _userName);
         default: return _PlaceholderScreen(
@@ -124,7 +124,7 @@ class _MainLayoutState extends State<MainLayout> {
         case 2: return const LiveClassesScreen(role: 'teacher');
         case 3: return const StudentsListScreen();
         case 4: return const TeacherSubjectsScreen();
-        case 5: return const ChatIAScreen();
+        case 5: return const ChatIAScreen(role: 'teacher');
         case 6: return const NotificationsScreen();
         case 7: return TeacherProfileScreen(userName: _userName);
         default: return _PlaceholderScreen(
