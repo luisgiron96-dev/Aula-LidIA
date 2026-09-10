@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -382,11 +383,24 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
               top: BorderSide(color: Colors.grey.shade200))),
           child: Row(children: [
             Expanded(
-              child: TextField(
-                controller: _msgCtrl,
-                maxLines: null,
-                onSubmitted: _sendMessage,
-                decoration: InputDecoration(
+              child: Focus(
+                onKeyEvent: (node, event) {
+                  final isEnter = event.logicalKey == LogicalKeyboardKey.enter
+                    || event.logicalKey == LogicalKeyboardKey.numpadEnter;
+                  final isShiftPressed =
+                    HardwareKeyboard.instance.isShiftPressed;
+                  if (isEnter && !isShiftPressed
+                      && event is KeyDownEvent) {
+                    _sendMessage(_msgCtrl.text);
+                    return KeyEventResult.handled;
+                  }
+                  return KeyEventResult.ignored;
+                },
+                child: TextField(
+                  controller: _msgCtrl,
+                  maxLines: null,
+                  onSubmitted: _sendMessage,
+                  decoration: InputDecoration(
                   hintText: _isTeacher
                     ? '¿Qué tema vas a dictar?'
                     : '¿Qué tema quieres aprender?',
@@ -399,7 +413,8 @@ class _ChatIAScreenState extends State<ChatIAScreen> {
                     borderRadius: BorderRadius.circular(12),
                     borderSide: BorderSide.none),
                   contentPadding: const EdgeInsets.symmetric(
-                    horizontal: 14, vertical: 10)))),
+                    horizontal: 14, vertical: 10))),
+              )),
             const SizedBox(width: 8),
             GestureDetector(
               onTap: () => _sendMessage(_msgCtrl.text),
