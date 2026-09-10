@@ -1,6 +1,11 @@
 import 'package:flutter/material.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/constants/app_text.dart';
+import '../../core/services/avatar_controller.dart';
+import '../../core/services/locale_controller.dart';
 import '../../core/services/supabase_service.dart';
+import '../../core/services/theme_color_controller.dart';
+import '../../core/theme/app_theme.dart';
 import '../../features/student/screens/student_home_screen.dart';
 import '../../features/student/screens/student_profile_screen.dart';
 import '../../features/subjects/screens/subjects_list_screen.dart';
@@ -30,14 +35,36 @@ class _MainLayoutState extends State<MainLayout> {
   bool _sidebarExpanded = true;
   String _userName    = '';
 
+  final _theme = ThemeColorController.instance;
+  final _locale = LocaleController.instance;
+  final _avatar = AvatarController.instance;
+  AppThemeColors get _c => AppThemeColors(_theme.isDark);
+
   @override
   void initState() {
     super.initState();
+    _theme.addListener(_onSettingsChanged);
+    _locale.addListener(_onSettingsChanged);
+    _avatar.addListener(_onSettingsChanged);
     _loadUserData();
+  }
+
+  @override
+  void dispose() {
+    _theme.removeListener(_onSettingsChanged);
+    _locale.removeListener(_onSettingsChanged);
+    _avatar.removeListener(_onSettingsChanged);
+    super.dispose();
+  }
+
+  void _onSettingsChanged() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadUserData() async {
     final name = await SupabaseService.getUserName();
+    final avatar = await SupabaseService.getAvatarUrl();
+    if (avatar != null) _avatar.setAvatarUrl(avatar);
     if (mounted) {
       setState(() {
         _userName = name.isNotEmpty
@@ -51,50 +78,50 @@ class _MainLayoutState extends State<MainLayout> {
     if (widget.role == 'student') {
       return [
         _NavItem(icon: Icons.home_outlined,
-          iconActive: Icons.home, label: 'Inicio'),
+          iconActive: Icons.home, navKey: 'nav_home'),
         _NavItem(icon: Icons.menu_book_outlined,
-          iconActive: Icons.menu_book, label: 'Mis materias'),
+          iconActive: Icons.menu_book, navKey: 'nav_subjects_student'),
         _NavItem(icon: Icons.videocam_outlined,
-          iconActive: Icons.videocam, label: 'Clases en vivo'),
+          iconActive: Icons.videocam, navKey: 'nav_live_class_student'),
         _NavItem(icon: Icons.smart_toy_outlined,
-          iconActive: Icons.smart_toy, label: 'LidIA IA'),
+          iconActive: Icons.smart_toy, navKey: 'nav_chat_ia'),
         _NavItem(icon: Icons.notifications_outlined,
-          iconActive: Icons.notifications, label: 'Notificaciones'),
+          iconActive: Icons.notifications, navKey: 'nav_notifications'),
         _NavItem(icon: Icons.person_outline,
-          iconActive: Icons.person, label: 'Mi perfil'),
+          iconActive: Icons.person, navKey: 'nav_profile'),
         _NavItem(icon: Icons.settings_outlined,
-          iconActive: Icons.settings, label: 'Configuración'),
+          iconActive: Icons.settings, navKey: 'nav_settings'),
       ];
     } else {
       return [
         _NavItem(icon: Icons.home_outlined,
-          iconActive: Icons.home, label: 'Inicio'),
+          iconActive: Icons.home, navKey: 'nav_home'),
         _NavItem(icon: Icons.upload_outlined,
-          iconActive: Icons.upload, label: 'Subir contenido'),
+          iconActive: Icons.upload, navKey: 'nav_upload'),
         _NavItem(icon: Icons.videocam_outlined,
-          iconActive: Icons.videocam, label: 'Clase en vivo'),
+          iconActive: Icons.videocam, navKey: 'nav_live_class_teacher'),
         _NavItem(icon: Icons.people_outline,
-          iconActive: Icons.people, label: 'Estudiantes'),
+          iconActive: Icons.people, navKey: 'nav_students'),
         _NavItem(icon: Icons.menu_book_outlined,
-          iconActive: Icons.menu_book, label: 'Asignaturas'),
+          iconActive: Icons.menu_book, navKey: 'nav_subjects_teacher'),
         _NavItem(icon: Icons.smart_toy_outlined,
-          iconActive: Icons.smart_toy, label: 'LidIA IA'),
+          iconActive: Icons.smart_toy, navKey: 'nav_chat_ia'),
         _NavItem(icon: Icons.notifications_outlined,
-          iconActive: Icons.notifications, label: 'Notificaciones'),
+          iconActive: Icons.notifications, navKey: 'nav_notifications'),
         _NavItem(icon: Icons.person_outline,
-          iconActive: Icons.person, label: 'Mi perfil'),
+          iconActive: Icons.person, navKey: 'nav_profile'),
         _NavItem(icon: Icons.settings_outlined,
-          iconActive: Icons.settings, label: 'Configuración'),
+          iconActive: Icons.settings, navKey: 'nav_settings'),
       ];
     }
   }
 
   int get _notificationsIndex =>
-    _items.indexWhere((i) => i.label == 'Notificaciones');
+    _items.indexWhere((i) => i.navKey == 'nav_notifications');
   int get _profileIndex =>
-    _items.indexWhere((i) => i.label == 'Mi perfil');
+    _items.indexWhere((i) => i.navKey == 'nav_profile');
   int get _settingsIndex =>
-    _items.indexWhere((i) => i.label == 'Configuración');
+    _items.indexWhere((i) => i.navKey == 'nav_settings');
 
   List<int> get _mobileNavIndices =>
     List.generate(_items.length, (i) => i)
@@ -172,9 +199,9 @@ class _MainLayoutState extends State<MainLayout> {
       ? AppColors.primaryDark : AppColors.accent;
 
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: _c.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: _c.surface,
         elevation: 0,
         automaticallyImplyLeading: false,
         titleSpacing: 16,
@@ -182,15 +209,15 @@ class _MainLayoutState extends State<MainLayout> {
           Container(
             width: 32, height: 32,
             decoration: BoxDecoration(
-              color: AppColors.primary,
+              color: _theme.accentColor,
               borderRadius: BorderRadius.circular(8)),
             child: const Icon(Icons.school,
               color: Colors.white, size: 18)),
           const SizedBox(width: 10),
-          const Text('Aula Lid-IA',
+          Text('Aula Lid-IA',
             style: TextStyle(fontSize: 15,
               fontWeight: FontWeight.w600,
-              color: AppColors.textPrimary)),
+              color: _c.textPrimary)),
         ]),
         actions: [
           IconButton(
@@ -198,7 +225,7 @@ class _MainLayoutState extends State<MainLayout> {
               _selectedIndex == _notificationsIndex
                 ? Icons.notifications
                 : Icons.notifications_outlined,
-              color: AppColors.textSecondary),
+              color: _c.textSecondary),
             onPressed: () => setState(() =>
               _selectedIndex = _notificationsIndex)),
           GestureDetector(
@@ -209,16 +236,20 @@ class _MainLayoutState extends State<MainLayout> {
               child: CircleAvatar(
                 radius: 16,
                 backgroundColor: avatarColor,
-                child: Text(_avatarText,
-                  style: TextStyle(fontSize: 11,
-                    fontWeight: FontWeight.w500,
-                    color: avatarTextColor))))),
+                backgroundImage: _avatar.avatarUrl != null
+                  ? NetworkImage(_avatar.avatarUrl!) : null,
+                child: _avatar.avatarUrl == null
+                  ? Text(_avatarText,
+                      style: TextStyle(fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: avatarTextColor))
+                  : null))),
           IconButton(
             icon: Icon(
               _selectedIndex == _settingsIndex
                 ? Icons.settings
                 : Icons.settings_outlined,
-              color: AppColors.textSecondary, size: 20),
+              color: _c.textSecondary, size: 20),
             onPressed: () => setState(() =>
               _selectedIndex = _settingsIndex)),
           IconButton(
@@ -232,6 +263,7 @@ class _MainLayoutState extends State<MainLayout> {
         items: _mobileNavIndices.map((i) => _items[i]).toList(),
         selectedRealIndex: _selectedIndex,
         realIndices: _mobileNavIndices,
+        accentColor: _theme.accentColor,
         onTap: (realIndex) =>
           setState(() => _selectedIndex = realIndex),
       ),
@@ -264,7 +296,7 @@ class _MainLayoutState extends State<MainLayout> {
                 Container(
                   width: 32, height: 32,
                   decoration: BoxDecoration(
-                    color: AppColors.primary,
+                    color: _theme.accentColor,
                     borderRadius: BorderRadius.circular(8)),
                   child: const Icon(Icons.school,
                     color: Colors.white, size: 18)),
@@ -307,10 +339,14 @@ class _MainLayoutState extends State<MainLayout> {
                 CircleAvatar(
                   radius: 16,
                   backgroundColor: avatarColor,
-                  child: Text(_avatarText,
-                    style: TextStyle(fontSize: 11,
-                      fontWeight: FontWeight.w500,
-                      color: avatarTextColor))),
+                  backgroundImage: _avatar.avatarUrl != null
+                    ? NetworkImage(_avatar.avatarUrl!) : null,
+                  child: _avatar.avatarUrl == null
+                    ? Text(_avatarText,
+                        style: TextStyle(fontSize: 11,
+                          fontWeight: FontWeight.w500,
+                          color: avatarTextColor))
+                    : null),
                 if (_sidebarExpanded) ...[
                   const SizedBox(width: 8),
                   Expanded(child: Column(
@@ -355,11 +391,11 @@ class _MainLayoutState extends State<MainLayout> {
                         vertical: 10),
                       decoration: BoxDecoration(
                         color: active
-                          ? AppColors.primary.withValues(alpha: 0.25)
+                          ? _theme.accentColor.withValues(alpha: 0.25)
                           : Colors.transparent,
                         borderRadius: BorderRadius.circular(8),
                         border: active
-                          ? Border.all(color: AppColors.primary
+                          ? Border.all(color: _theme.accentColor
                               .withValues(alpha: 0.4))
                           : null),
                       child: Row(
@@ -370,7 +406,7 @@ class _MainLayoutState extends State<MainLayout> {
                           Icon(
                             active ? item.iconActive : item.icon,
                             color: active
-                              ? AppColors.primaryLight
+                              ? _theme.accentColor
                               : Colors.white54,
                             size: 20),
                           if (_sidebarExpanded) ...[
@@ -412,8 +448,8 @@ class _MainLayoutState extends State<MainLayout> {
                       color: Colors.red, size: 18),
                     if (_sidebarExpanded) ...[
                       const SizedBox(width: 10),
-                      const Text('Cerrar sesión',
-                        style: TextStyle(
+                      Text(tr('logout'),
+                        style: const TextStyle(
                           color: Colors.red, fontSize: 13)),
                     ],
                   ]),
@@ -431,21 +467,24 @@ class _MainLayoutState extends State<MainLayout> {
 class _NavItem {
   final IconData icon;
   final IconData iconActive;
-  final String label;
+  final String navKey;
   const _NavItem({required this.icon,
-    required this.iconActive, required this.label});
+    required this.iconActive, required this.navKey});
+  String get label => tr(navKey);
 }
 
 class _MobileBottomNav extends StatelessWidget {
   final List<_NavItem> items;
   final List<int> realIndices;
   final int selectedRealIndex;
+  final Color accentColor;
   final ValueChanged<int> onTap;
 
   const _MobileBottomNav({
     required this.items,
     required this.realIndices,
     required this.selectedRealIndex,
+    required this.accentColor,
     required this.onTap,
   });
 
@@ -478,7 +517,7 @@ class _MobileBottomNav extends StatelessWidget {
                       Icon(
                         active ? item.iconActive : item.icon,
                         color: active
-                          ? AppColors.primaryLight
+                          ? accentColor
                           : Colors.white54,
                         size: 22),
                       const SizedBox(height: 3),
@@ -510,23 +549,25 @@ class _PlaceholderScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isDark = ThemeColorController.instance.isDark;
+    final c = AppThemeColors(isDark);
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: c.background,
       body: Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.construction_outlined,
-              size: 48, color: AppColors.textSecondary),
+            Icon(Icons.construction_outlined,
+              size: 48, color: c.textSecondary),
             const SizedBox(height: 12),
             Text(label,
-              style: const TextStyle(fontSize: 18,
+              style: TextStyle(fontSize: 18,
                 fontWeight: FontWeight.w500,
-                color: AppColors.textPrimary)),
+                color: c.textPrimary)),
             const SizedBox(height: 8),
-            const Text('Sección en construcción',
+            Text(tr('construction_title'),
               style: TextStyle(fontSize: 14,
-                color: AppColors.textSecondary)),
+                color: c.textSecondary)),
           ]),
       ),
     );

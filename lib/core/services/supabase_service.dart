@@ -142,4 +142,32 @@ class SupabaseService {
       .update({'notifications_enabled': enabled})
       .eq('id', user.id);
   }
+
+  // Foto de perfil
+  static Future<String?> getAvatarUrl() async {
+    try {
+      final user = currentUser;
+      if (user == null) return null;
+
+      final data = await client
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', user.id)
+        .single();
+
+      return data['avatar_url'] as String?;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  static Future<void> updateAvatarUrl(String url) async {
+    final user = currentUser;
+    if (user == null) return;
+
+    await client
+      .from('profiles')
+      .update({'avatar_url': url})
+      .eq('id', user.id);
+  }
 }
