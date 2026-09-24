@@ -43,6 +43,14 @@ class SupabaseService {
     await client.auth.signOut();
   }
 
+  // Cierra la sesión en todos los demás dispositivos donde el
+  // usuario haya iniciado sesión, sin afectar la sesión actual.
+  // Supabase revoca el refresh token de esas sesiones; el access
+  // token en uso seguirá siendo válido hasta que expire.
+  static Future<void> signOutOtherDevices() async {
+    await client.auth.signOut(scope: SignOutScope.others);
+  }
+
   // Recuperar contraseña
   static Future<void> resetPassword(String email) async {
     await client.auth.resetPasswordForEmail(

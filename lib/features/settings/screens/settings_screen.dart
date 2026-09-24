@@ -26,6 +26,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   bool _loadingName = true;
   bool _notificationsOn = true;
   bool _uploadingAvatar = false;
+  bool _closingOtherSessions = false;
 
   final _theme = ThemeColorController.instance;
   final _locale = LocaleController.instance;
@@ -653,8 +654,62 @@ class _SettingsScreenState extends State<SettingsScreen> {
       const SizedBox(height: 16),
       _staticOptionTile(tr('settings_this_device'), platform, selected: true),
       const SizedBox(height: 4),
+      _actionTile(
+        icon: Icons.phonelink_erase_outlined,
+        color: Colors.orange.shade700,
+        title: tr('settings_devices_close_others'),
+        subtitle: tr('settings_devices_close_others_desc'),
+        trailing: _closingOtherSessions
+          ? SizedBox(width: 18, height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2, color: _theme.accentColor))
+          : null,
+        onTap: _closingOtherSessions
+          ? () {}
+          : _confirmCloseOtherSessions),
+      const SizedBox(height: 4),
       _infoCard(tr('settings_devices_info')),
     ]);
+  }
+
+  Future<void> _confirmCloseOtherSessions() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: _c.surface,
+        title: Text(tr('settings_devices_confirm_title'),
+          style: TextStyle(color: _c.textPrimary)),
+        content: Text(tr('settings_devices_confirm_body'),
+          style: TextStyle(color: _c.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(tr('action_cancel'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: Text(tr('settings_devices_confirm_action'))),
+        ]));
+
+    if (confirmed != true || !mounted) return;
+
+    setState(() => _closingOtherSessions = true);
+    try {
+      await SupabaseService.signOutOtherDevices();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('settings_devices_success')),
+          backgroundColor: _theme.accentColor));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(tr('settings_devices_error')),
+          backgroundColor: Colors.red));
+      }
+    } finally {
+      if (mounted) setState(() => _closingOtherSessions = false);
+    }
   }
 
   // ── RED ──────────────────────────────────────────────

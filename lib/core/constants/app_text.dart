@@ -86,8 +86,23 @@ class AppText {
 
       'settings_devices_desc': 'Sesiones activas de tu cuenta',
       'settings_this_device': 'Este dispositivo',
-      'settings_devices_info': 'La gestión de sesiones en otros '
-        'dispositivos estará disponible próximamente.',
+      'settings_devices_info': 'Por ahora no podemos mostrarte el '
+        'detalle de cada dispositivo conectado, pero puedes cerrar de '
+        'una sola vez la sesión en todos los demás sin afectar este '
+        'dispositivo.',
+      'settings_devices_close_others': 'Cerrar sesión en los demás '
+        'dispositivos',
+      'settings_devices_close_others_desc': 'Este dispositivo seguirá '
+        'con la sesión iniciada',
+      'settings_devices_confirm_title': '¿Cerrar otras sesiones?',
+      'settings_devices_confirm_body': 'Se cerrará la sesión en '
+        'cualquier otro dispositivo donde hayas iniciado sesión con '
+        'esta cuenta. Este dispositivo no se verá afectado.',
+      'settings_devices_confirm_action': 'Sí, cerrar sesiones',
+      'settings_devices_success': 'Sesión cerrada en los demás '
+        'dispositivos.',
+      'settings_devices_error': 'No se pudieron cerrar las otras '
+        'sesiones. Intenta de nuevo.',
 
       'settings_network_desc': 'Conexión a internet',
       'settings_network_info': 'Aula Lid-IA necesita conexión a internet '
@@ -179,8 +194,20 @@ class AppText {
 
       'settings_devices_desc': 'Active sessions on your account',
       'settings_this_device': 'This device',
-      'settings_devices_info': 'Managing sessions on other devices will '
-        'be available soon.',
+      'settings_devices_info': "We can't show the details of each "
+        'connected device yet, but you can sign out of every other '
+        'session at once without affecting this device.',
+      'settings_devices_close_others': 'Sign out of other devices',
+      'settings_devices_close_others_desc': 'This device will stay '
+        'signed in',
+      'settings_devices_confirm_title': 'Sign out of other sessions?',
+      'settings_devices_confirm_body': 'This will sign out any other '
+        'device where you are logged into this account. This device '
+        'will not be affected.',
+      'settings_devices_confirm_action': 'Yes, sign out',
+      'settings_devices_success': 'Signed out of the other devices.',
+      'settings_devices_error': "Couldn't sign out the other "
+        'sessions. Please try again.',
 
       'settings_network_desc': 'Internet connection',
       'settings_network_info': 'Aula Lid-IA needs an internet connection '
