@@ -11,13 +11,21 @@ import '../../../core/theme/app_theme.dart';
 /// flujo de registro. Si el usuario retrocede sin autorizar, hace
 /// pop con `false`/`null` y el registro no continúa.
 class DataConsentScreen extends StatefulWidget {
-  const DataConsentScreen({super.key});
+  /// 'student' o 'teacher'. Determina qué datos, finalidades y
+  /// secciones se muestran (por ejemplo, la sección de menores de
+  /// edad solo aplica a estudiantes).
+  final String role;
+
+  const DataConsentScreen({super.key, required this.role});
 
   @override
   State<DataConsentScreen> createState() => _DataConsentScreenState();
 }
 
 class _DataConsentScreenState extends State<DataConsentScreen> {
+  bool get _isTeacher => widget.role == 'teacher';
+  String get _roleLabel => _isTeacher ? 'Docente' : 'Estudiante';
+
   // 'mayor'     -> quien se registra autoriza por sí mismo.
   // 'acudiente' -> un padre/madre/representante autoriza en nombre
   //                de un estudiante menor de edad.
@@ -194,8 +202,10 @@ class _DataConsentScreenState extends State<DataConsentScreen> {
               color: tc.textPrimary),
             const SizedBox(height: 10),
             _buildPurposeCard(tc),
-            const SizedBox(height: 24),
-            _buildMinorsSection(tc),
+            if (!_isTeacher) ...[
+              const SizedBox(height: 24),
+              _buildMinorsSection(tc),
+            ],
             const SizedBox(height: 24),
             _SectionTitle(
               icon: Icons.verified_user_outlined,
@@ -220,8 +230,23 @@ class _DataConsentScreenState extends State<DataConsentScreen> {
           decoration: BoxDecoration(
             color: AppColors.primary,
             borderRadius: BorderRadius.circular(16)),
-          child: const Icon(Icons.school,
+          child: Icon(_isTeacher ? Icons.co_present : Icons.school,
             color: Colors.white, size: 30)),
+        const SizedBox(height: 10),
+        Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12, vertical: 5),
+          decoration: BoxDecoration(
+            color: _isTeacher
+              ? AppColors.accent.withValues(alpha: 0.15)
+              : AppColors.primaryLight.withValues(alpha: 0.35),
+            borderRadius: BorderRadius.circular(20)),
+          child: Text('Cuenta de $_roleLabel',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w600,
+              color: _isTeacher
+                ? AppColors.accent : AppColors.primaryDark))),
         const SizedBox(height: 14),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -293,16 +318,27 @@ class _DataConsentScreenState extends State<DataConsentScreen> {
   bool isDarkAware(AppThemeColors tc) => tc.isDark;
 
   Widget _buildDataGrid(AppThemeColors tc) {
-    const items = [
-      (Icons.person_outline, 'Nombre completo'),
-      (Icons.badge_outlined, 'Documento de identificación'),
-      (Icons.cake_outlined, 'Fecha de nacimiento'),
-      (Icons.email_outlined, 'Correo electrónico'),
-      (Icons.phone_outlined, 'Número de teléfono'),
-      (Icons.school_outlined, 'Información académica'),
-      (Icons.menu_book_outlined, 'Proceso educativo'),
-      (Icons.tune, 'Personalización del aprendizaje'),
-    ];
+    final items = _isTeacher
+      ? const [
+          (Icons.person_outline, 'Nombre completo'),
+          (Icons.badge_outlined, 'Documento de identificación'),
+          (Icons.email_outlined, 'Correo electrónico'),
+          (Icons.phone_outlined, 'Número de teléfono'),
+          (Icons.work_outline, 'Información profesional y académica'),
+          (Icons.menu_book_outlined, 'Asignaturas y cursos a cargo'),
+          (Icons.upload_file_outlined, 'Contenidos y materiales publicados'),
+          (Icons.apartment_outlined, 'Información de contacto institucional'),
+        ]
+      : const [
+          (Icons.person_outline, 'Nombre completo'),
+          (Icons.badge_outlined, 'Documento de identificación'),
+          (Icons.cake_outlined, 'Fecha de nacimiento'),
+          (Icons.email_outlined, 'Correo electrónico'),
+          (Icons.phone_outlined, 'Número de teléfono'),
+          (Icons.school_outlined, 'Información académica'),
+          (Icons.menu_book_outlined, 'Proceso educativo'),
+          (Icons.tune, 'Personalización del aprendizaje'),
+        ];
     return Wrap(
       spacing: 10,
       runSpacing: 10,
@@ -314,18 +350,31 @@ class _DataConsentScreenState extends State<DataConsentScreen> {
   }
 
   Widget _buildPurposeCard(AppThemeColors tc) {
-    const purposes = [
-      'Crear y administrar la cuenta del usuario.',
-      'Permitir el acceso a Aula LidIA.',
-      'Personalizar la experiencia educativa.',
-      'Realizar seguimiento del proceso de aprendizaje.',
-      'Facilitar herramientas educativas basadas en inteligencia '
-        'artificial.',
-      'Enviar comunicaciones relacionadas con la plataforma.',
-      'Mejorar los servicios y funcionalidades de Aula LidIA.',
-      'Generar estadísticas educativas cuando corresponda y de '
-        'acuerdo con las políticas aplicables.',
-    ];
+    final purposes = _isTeacher
+      ? const [
+          'Crear y administrar la cuenta del usuario.',
+          'Permitir el acceso a Aula LidIA.',
+          'Gestionar tus asignaturas, clases y contenidos.',
+          'Facilitar la comunicación con tus estudiantes.',
+          'Dar soporte a las herramientas de inteligencia artificial '
+            'que utilices para preparar tus clases.',
+          'Enviar comunicaciones relacionadas con la plataforma.',
+          'Mejorar los servicios y funcionalidades de Aula LidIA.',
+          'Generar estadísticas educativas cuando corresponda y de '
+            'acuerdo con las políticas aplicables.',
+        ]
+      : const [
+          'Crear y administrar la cuenta del usuario.',
+          'Permitir el acceso a Aula LidIA.',
+          'Personalizar la experiencia educativa.',
+          'Realizar seguimiento del proceso de aprendizaje.',
+          'Facilitar herramientas educativas basadas en inteligencia '
+            'artificial.',
+          'Enviar comunicaciones relacionadas con la plataforma.',
+          'Mejorar los servicios y funcionalidades de Aula LidIA.',
+          'Generar estadísticas educativas cuando corresponda y de '
+            'acuerdo con las políticas aplicables.',
+        ];
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),

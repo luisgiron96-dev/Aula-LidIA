@@ -186,7 +186,8 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _startRegisterFlow() async {
     final autorizado = await Navigator.push<bool>(
       context,
-      MaterialPageRoute(builder: (_) => const DataConsentScreen()));
+      MaterialPageRoute(builder: (_) =>
+        DataConsentScreen(role: _selectedRole)));
     if (autorizado == true && mounted) {
       _showRegisterDialog();
     }
