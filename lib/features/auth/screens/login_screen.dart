@@ -4,6 +4,7 @@ import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_strings.dart';
 import '../../../core/services/supabase_service.dart';
 import '../../../shared/layouts/main_layout.dart';
+import 'data_consent_screen.dart';
 import 'verify_reset_code_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -179,6 +180,18 @@ class _LoginScreenState extends State<LoginScreen> {
               ],
         )));
   }
+  /// Muestra primero la pantalla de autorización de tratamiento de
+  /// datos personales. Solo si el usuario autoriza (pop con `true`)
+  /// se abre el diálogo de registro existente.
+  Future<void> _startRegisterFlow() async {
+    final autorizado = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => const DataConsentScreen()));
+    if (autorizado == true && mounted) {
+      _showRegisterDialog();
+    }
+  }
+
   void _showRegisterDialog() {
     final nameCtrl  = TextEditingController();
     final emailCtrl = TextEditingController();
@@ -410,7 +423,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     style: TextStyle(fontSize: 12,
                       color: AppColors.textSecondary)),
                   GestureDetector(
-                    onTap: () => _showRegisterDialog(),
+                    onTap: () => _startRegisterFlow(),
                     child: const Text('Regístrate',
                       style: TextStyle(fontSize: 12,
                         color: AppColors.primary,
